@@ -1,0 +1,32 @@
+﻿MASTER SERVICES AGREEMENT
+
+This Master Services Agreement ("Agreement") is entered into as of January 15, 2025 ("Effective Date"), by and between Acme Cloud Solutions, Inc., a Delaware corporation with its principal place of business at 500 Technology Drive, San Francisco, CA 94105 ("Provider"), and GlobalTech Enterprises, LLC, a New York limited liability company with its principal place of business at 200 Park Avenue, New York, NY 10166 ("Customer").
+
+1. TERM AND RENEWAL
+The initial term of this Agreement shall be three (3) years from the Effective Date ("Initial Term"). Upon expiration of the Initial Term, this Agreement shall automatically renew for successive one (1) year periods ("Renewal Terms") unless either party provides written notice of non-renewal at least ninety (90) days prior to the end of the then-current term.
+
+2. FEES AND PAYMENT
+Customer shall pay Provider an annual subscription fee of $450,000 USD, payable in quarterly installments of $112,500 due within thirty (30) days of the start of each calendar quarter. Late payments shall accrue interest at 1.5% per month. Provider may increase fees by up to 5% upon each Renewal Term with sixty (60) days prior written notice.
+
+3. SERVICE LEVEL AGREEMENT
+Provider guarantees 99.9% uptime for the platform, measured monthly. If uptime falls below 99.9% in any calendar month, Customer shall receive a service credit equal to 10% of the monthly fee for each 0.1% below the guaranteed threshold, up to a maximum credit of 30% of the monthly fee. Provider shall notify Customer of any scheduled maintenance at least 48 hours in advance.
+
+4. TERMINATION
+Either party may terminate this Agreement for cause upon sixty (60) days written notice if the other party materially breaches this Agreement and fails to cure such breach within the notice period. Customer may terminate for convenience upon ninety (90) days written notice, subject to payment of an early termination fee equal to 50% of the remaining fees due under the then-current term. Provider may terminate immediately if Customer fails to pay any undisputed amount within sixty (60) days of the due date.
+
+5. LIMITATION OF LIABILITY
+EXCEPT FOR BREACHES OF CONFIDENTIALITY OR INDEMNIFICATION OBLIGATIONS, NEITHER PARTY'S AGGREGATE LIABILITY UNDER THIS AGREEMENT SHALL EXCEED THE TOTAL FEES PAID OR PAYABLE BY CUSTOMER IN THE TWELVE (12) MONTHS PRECEDING THE EVENT GIVING RISE TO LIABILITY. IN NO EVENT SHALL EITHER PARTY BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES.
+
+6. INDEMNIFICATION
+Provider shall indemnify Customer against third-party claims alleging that the Service infringes any intellectual property right, with Provider's indemnification obligation capped at two (2) times the annual subscription fee. Customer shall indemnify Provider against claims arising from Customer's use of the Service in violation of this Agreement or applicable law.
+
+7. CONFIDENTIALITY
+Each party agrees to maintain the confidentiality of the other party's Confidential Information for a period of five (5) years following disclosure. Confidential Information shall not include information that is publicly available, independently developed, or rightfully received from a third party without restriction.
+
+8. DATA PROTECTION
+Provider shall process Customer data in accordance with the Data Processing Addendum attached hereto as Exhibit A. Provider maintains SOC 2 Type II certification and encrypts all data at rest using AES-256 encryption. Customer data shall be stored within the continental United States unless otherwise agreed in writing.
+
+9. GOVERNING LAW AND DISPUTE RESOLUTION
+This Agreement shall be governed by the laws of the State of New York without regard to conflicts of law principles. Any dispute arising under this Agreement shall first be submitted to mediation, and if unresolved within thirty (30) days, to binding arbitration under the rules of the American Arbitration Association in New York, New York.
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date.
