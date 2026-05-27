@@ -1,0 +1,32 @@
+SOFTWARE LICENSE AND SUPPORT AGREEMENT
+
+This Software License and Support Agreement ("Agreement") is made effective as of March 1, 2025 ("Effective Date"), between Brightline Analytics Ltd., a company incorporated in England and Wales with its registered office at 50 Finsbury Square, London EC2A 1HD, United Kingdom ("Licensor"), and Pinewood Health Systems, P.C., a Massachusetts professional corporation with offices at 100 Cambridge Street, Boston, MA 02114 ("Licensee").
+
+1. LICENSE TERM
+The initial term of this Agreement shall commence on the Effective Date and continue for two (2) years ("Initial Term"). Thereafter, the Agreement shall renew for additional six (6) month periods ("Renewal Terms") unless either party gives sixty (60) days' written notice of non-renewal prior to the end of the then-current term.
+
+2. LICENSE FEES
+Licensee shall pay Licensor a license and support fee of $180,000 USD per year, invoiced monthly in arrears at $15,000 per month, payable net forty-five (45) days. Overdue invoices shall bear interest at the rate of 2% per month or the maximum permitted by applicable law, whichever is lower. Fees are fixed for the Initial Term and may be increased by up to 7% per Renewal Term upon ninety (90) days prior written notice.
+
+3. SERVICE LEVELS
+Licensor will use commercially reasonable efforts to maintain platform availability of at least 99.5% per calendar quarter, excluding scheduled maintenance. If availability drops below 99.5% in any quarter, Licensee shall receive a service credit equal to 5% of the quarterly fee for each full 0.25% below the threshold, with a maximum aggregate credit of 25% of the quarterly fee. Scheduled maintenance shall be announced at least seventy-two (72) hours in advance.
+
+4. TERMINATION
+Either party may terminate this Agreement for material breach upon thirty (30) days' written notice if the breach remains uncured at the end of the notice period. Licensee may terminate for convenience upon one hundred twenty (120) days' written notice with payment of all fees accrued through the effective date of termination plus a wind-down fee equal to three (3) months of license fees. Licensor may suspend access if any undisputed invoice is more than forty-five (45) days past due and may terminate the Agreement if such non-payment continues beyond ninety (90) days.
+
+5. LIMITATION OF LIABILITY
+EXCEPT FOR EACH PARTY'S INDEMNIFICATION OBLIGATIONS AND BREACHES OF CONFIDENTIALITY, NEITHER PARTY SHALL BE LIABLE TO THE OTHER FOR AGGREGATE DAMAGES EXCEEDING THE FEES PAID BY LICENSEE DURING THE SIX (6) MONTHS IMMEDIATELY PRECEDING THE EVENT GIVING RISE TO THE CLAIM. IN NO EVENT SHALL EITHER PARTY BE LIABLE FOR LOST PROFITS, LOST REVENUE, OR ANY INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+6. INDEMNIFICATION
+Licensor shall defend and indemnify Licensee against any third-party claim that the licensed software infringes a UK or US patent, copyright, or trade secret, provided that Licensor's total indemnification liability shall not exceed one and one-half (1.5) times the fees paid by Licensee in the twelve (12) months preceding the claim. Licensee shall indemnify Licensor for claims arising from Licensee's use of the software outside the scope of this Agreement or in violation of applicable law.
+
+7. CONFIDENTIALITY
+Each party shall keep the other party's Confidential Information confidential for a period of seven (7) years following disclosure, except for trade secrets, which shall remain confidential for as long as they qualify as such under applicable law. Confidential Information does not include information that is publicly available through no breach of this Agreement, independently developed without reference to the other party's information, or rightfully obtained from a third party without confidentiality obligations.
+
+8. DATA PROTECTION
+Licensor processes personal data in accordance with the UK GDPR, the EU GDPR, and the EU-U.S. Data Privacy Framework. All Licensee data is encrypted in transit using TLS 1.3 and at rest using AES-256. Personal data of patients shall be stored exclusively within the European Economic Area or the United Kingdom, and Licensor shall comply with HIPAA Business Associate obligations with respect to any protected health information processed on Licensee's behalf, as set forth in the Business Associate Addendum attached as Exhibit B.
+
+9. GOVERNING LAW AND DISPUTE RESOLUTION
+This Agreement shall be governed by and construed in accordance with the laws of England and Wales, without regard to its conflict-of-law principles. The parties submit to the exclusive jurisdiction of the courts of England and Wales for the resolution of any disputes arising out of or in connection with this Agreement, except that either party may seek injunctive relief in any court of competent jurisdiction to protect its intellectual property or confidential information.
+
+IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date written above.
