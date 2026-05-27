@@ -1,5 +1,6 @@
 .env
 *.json
+!standard_terms.json
 __pycache__/
 *.pyc
 chroma_db/

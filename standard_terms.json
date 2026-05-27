@@ -1,0 +1,29 @@
+{
+  "company_role": "customer",
+  "review_perspective": "We are typically the customer or licensee. Counter-positions should favor our side and reflect what a buyer (not a vendor) would negotiate for.",
+  "thresholds": {
+    "auto_renewal_notice_min_days": 90,
+    "liability_cap_min_months_of_fees": 12,
+    "liability_cap_min_multiplier_of_annual_fees": 1.0,
+    "indemnity_cap_min_multiplier_of_annual_fees": 2.0,
+    "sla_uptime_min_percent": 99.5,
+    "confidentiality_period_min_years": 3,
+    "payment_terms_min_net_days": 30,
+    "termination_for_cause_notice_max_days": 30,
+    "termination_for_convenience_notice_max_days": 90
+  },
+  "preferences": {
+    "preferred_governing_jurisdictions": [
+      "New York",
+      "California",
+      "Delaware",
+      "United Kingdom",
+      "England and Wales"
+    ],
+    "required_certifications": ["SOC 2 Type II"],
+    "required_encryption": "AES-256 at rest, TLS 1.3 in transit",
+    "preferred_data_residency": ["United States", "European Economic Area"],
+    "compliance_required_if_applicable": ["GDPR", "HIPAA"]
+  },
+  "notes": "Edit these values to reflect your company's negotiation posture. The AI compares each contract against these standards and flags material deviations with concrete counter-positions."
+}
