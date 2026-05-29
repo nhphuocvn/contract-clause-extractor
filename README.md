@@ -29,7 +29,7 @@ git clone https://github.com/nhphuocvn/contract-clause-extractor.git
 cd contract-clause-extractor
 
 # 2. Install dependencies
-python -m pip install openai pydantic PyPDF2 python-dotenv streamlit
+python -m pip install openai pydantic PyPDF2 python-dotenv streamlit openpyxl
 
 # 3. Configure your OpenAI API key
 #    Create a .env file in the project root containing:
@@ -49,6 +49,21 @@ python extract.py sample_contract.txt sample_contract_2.txt
 ```
 
 For each input file `foo.txt` or `foo.pdf`, the script writes `foo.json` next to it, prints any risk flags to the terminal, and — when two or more contracts succeed — writes a `comparison_report.json` summarizing the differences.
+
+### Excel export
+
+After running `extract.py`, export the JSON results to an executive Excel workbook:
+
+```powershell
+python excel_export.py sample_contract.json sample_contract_2.json -o Portfolio.xlsx
+```
+
+The workbook has four sheets:
+
+- **README** — purpose and pipeline notes.
+- **Portfolio** — one row per contract with all key fields and risk levels.
+- **AI Risk Findings** — flattened paralegal findings across all contracts.
+- **Source Quotes** — audit trail pairing every value with its verbatim contract excerpt.
 
 ### Streamlit UI
 
