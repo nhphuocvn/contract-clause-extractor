@@ -1,0 +1,247 @@
+{
+  "deal_name": "AMD-Meta MI355X (synthetic)",
+  "documents": [
+    {"filename": "gpu_purchase_agreement.docx", "document_type": "purchase_agreement"},
+    {"filename": "gpu_purchase_agreement.pdf",  "document_type": "purchase_agreement"},
+    {"filename": "warrant_agreement.docx",       "document_type": "warrant"},
+    {"filename": "warrant_agreement.pdf",        "document_type": "warrant"}
+  ],
+
+  "expected_terms": [
+    {
+      "term_type": "PRICING",
+      "source_document": "gpu_purchase_agreement",
+      "source_section": "4",
+      "parameters": {
+        "base_asp_usd": 25000,
+        "currency": "USD",
+        "firm_for_initial_term": true
+      },
+      "ambiguity_flag": false
+    },
+    {
+      "term_type": "VOLUME_COMMITMENT",
+      "source_document": "gpu_purchase_agreement",
+      "source_section": "3",
+      "parameters": {
+        "total_units": 150000,
+        "term_years": 3,
+        "quarterly_schedule_units": [7000, 9000, 12000, 15000, 18000, 20000, 18000, 16000, 13000, 11000, 7000, 4000],
+        "year_totals_units": [43000, 72000, 35000]
+      },
+      "ambiguity_flag": false
+    },
+    {
+      "term_type": "REBATE",
+      "source_document": "gpu_purchase_agreement",
+      "source_section": "5",
+      "parameters": {
+        "tiers": [
+          {"threshold_cumulative_units": 30000,  "pct_off_base_asp": 0.03},
+          {"threshold_cumulative_units": 75000,  "pct_off_base_asp": 0.05},
+          {"threshold_cumulative_units": 120000, "pct_off_base_asp": 0.07}
+        ],
+        "measurement_basis": "cumulative_since_effective_date",
+        "settlement_cadence": "annual_in_arrears",
+        "settlement_window_days": 45,
+        "settlement_form": ["wire_transfer", "credit_against_invoices"]
+      },
+      "ambiguity_flag": true,
+      "ambiguity_note": "The clause states rebates settle annually and that the higher tier 'shall apply' when crossed during a Year, but does not specify whether crossing a tier mid-Year applies retroactively to all volume purchased earlier in that Year (or earlier in the Initial Term) or only to volume purchased after the crossing. The two readings produce materially different rebate accruals; the extractor should flag rather than choose."
+    },
+    {
+      "term_type": "TAKE_OR_PAY",
+      "source_document": "gpu_purchase_agreement",
+      "source_section": "6",
+      "parameters": {
+        "annual_minimum_pct_of_committed": 0.80,
+        "measurement_period": "annual",
+        "shortfall_payment_per_unit_usd": 25000,
+        "shortfall_payment_due_days": 60,
+        "banked_units_eligible_for_carryforward": true,
+        "banked_units_forfeit_at_term_end": true
+      },
+      "ambiguity_flag": false
+    },
+    {
+      "term_type": "PREPAYMENT",
+      "source_document": "gpu_purchase_agreement",
+      "source_section": "7",
+      "parameters": {
+        "amount_usd": 500000000,
+        "paid_at": "effective_date",
+        "refundable": false,
+        "drawdown_method": "applied_against_invoices",
+        "default_drawdown_pct_of_invoice": 0.20
+      },
+      "ambiguity_flag": false
+    },
+    {
+      "term_type": "PAYMENT_TERMS",
+      "source_document": "gpu_purchase_agreement",
+      "source_section": "8",
+      "parameters": {
+        "net_days": 90,
+        "currency": "USD",
+        "dispute_notice_window_days": 30,
+        "tax_responsibility": "buyer"
+      },
+      "ambiguity_flag": false
+    },
+    {
+      "term_type": "PRICE_PROTECTION_MFN",
+      "source_document": "gpu_purchase_agreement",
+      "source_section": "9",
+      "parameters": {
+        "trigger": "lower_price_to_comparable_volume_customer",
+        "application": "prospective_only",
+        "retroactive_refunds_allowed": false,
+        "notice_window_days": 30,
+        "effective_from": "quarter_following_third_party_agreement"
+      },
+      "ambiguity_flag": false
+    },
+    {
+      "term_type": "SUPPLY_COMMITMENT",
+      "source_document": "gpu_purchase_agreement",
+      "source_section": "10",
+      "parameters": {
+        "liquidated_damages_pct_per_week_of_delay": 0.02,
+        "liquidated_damages_cap_pct_of_quarter_order_value": 0.10,
+        "characterization": "liquidated_damages_not_penalty",
+        "delivery_basis": "quarter_by_quarter_allocation"
+      },
+      "ambiguity_flag": false
+    },
+    {
+      "term_type": "TERMINATION",
+      "source_document": "gpu_purchase_agreement",
+      "source_section": "11",
+      "parameters": {
+        "for_cause_notice_days": 30,
+        "for_cause_cure_period_days": 30,
+        "non_payment_grace_period_days": 90,
+        "for_convenience_party": "buyer",
+        "for_convenience_notice_days": 180,
+        "wind_down_fee_pct_of_remaining_committed_value": 0.25,
+        "wind_down_fee_basis": "base_asp_times_undelivered_committed_units",
+        "exclusive_monetary_remedy": true
+      },
+      "ambiguity_flag": false
+    },
+    {
+      "term_type": "LIABILITY",
+      "source_document": "gpu_purchase_agreement",
+      "source_section": "12",
+      "parameters": {
+        "cap_basis": "amounts_paid_or_payable_trailing_12_months",
+        "cap_months_of_fees": 12,
+        "carve_outs": [
+          "confidentiality_breach",
+          "ip_infringement_indemnification",
+          "amounts_owed_for_delivered_units",
+          "take_or_pay_obligations",
+          "prepayment_obligations"
+        ],
+        "ip_indemnification_uncapped": true,
+        "consequential_damages_excluded": true
+      },
+      "ambiguity_flag": false
+    },
+    {
+      "term_type": "WARRANT_EQUITY",
+      "source_document": "gpu_purchase_agreement",
+      "source_section": "13",
+      "parameters": {
+        "issued_concurrently_with_agreement": true,
+        "instrument": "warrant_to_purchase_common_stock",
+        "characterized_as": "consideration_payable_to_customer",
+        "referenced_document_filename": "warrant_agreement"
+      },
+      "ambiguity_flag": false
+    },
+    {
+      "term_type": "CROSS_REFERENCE",
+      "source_document": "gpu_purchase_agreement",
+      "source_section": "13",
+      "parameters": {
+        "referenced_document_label": "Warrant Agreement",
+        "raw_phrase": "Warrant Agreement of even date herewith"
+      },
+      "ambiguity_flag": false
+    }
+  ],
+
+  "expected_warrant_terms": {
+    "source_document": "warrant_agreement",
+    "total_shares": 12000000,
+    "exercise_price_usd": 0.01,
+    "expiration_years": 6,
+    "transfer_restrictions": "non_transferable_except_to_affiliates_or_with_company_consent",
+    "anti_dilution": "proportional_adjustments_for_splits_dividends_recapitalizations_and_change_of_control",
+    "tranches": [
+      {
+        "tranche_index": 1,
+        "share_count": 3000000,
+        "deployment_milestone_units": 30000,
+        "stock_price_hurdle_usd": 180.0,
+        "hurdle_measurement": "30_day_vwap",
+        "additional_conditions": []
+      },
+      {
+        "tranche_index": 2,
+        "share_count": 3000000,
+        "deployment_milestone_units": 75000,
+        "stock_price_hurdle_usd": 230.0,
+        "hurdle_measurement": "30_day_vwap",
+        "additional_conditions": []
+      },
+      {
+        "tranche_index": 3,
+        "share_count": 3000000,
+        "deployment_milestone_units": 120000,
+        "stock_price_hurdle_usd": 300.0,
+        "hurdle_measurement": "30_day_vwap",
+        "additional_conditions": []
+      },
+      {
+        "tranche_index": 4,
+        "share_count": 3000000,
+        "deployment_milestone_units": 150000,
+        "stock_price_hurdle_usd": 400.0,
+        "hurdle_measurement": "30_day_vwap",
+        "additional_conditions": ["deployment_at_scale_certification"]
+      }
+    ]
+  },
+
+  "expected_non_commercial_sections_in_warrant": [
+    {
+      "source_document": "warrant_agreement",
+      "source_section": "8",
+      "title": "CONFIDENTIALITY",
+      "note": "Boilerplate confidentiality clause. The extractor should NOT classify this as a commercial term — it is included specifically to test that distinction."
+    },
+    {
+      "source_document": "warrant_agreement",
+      "source_section": "11",
+      "title": "MISCELLANEOUS",
+      "note": "Notices, severability, governing law, counterparts, entire agreement — boilerplate, not commercial terms."
+    }
+  ],
+
+  "expected_unresolved_cross_references_when_only_doc_a_uploaded": [
+    {
+      "referenced_label": "Warrant Agreement",
+      "from_document": "gpu_purchase_agreement",
+      "from_section": "13",
+      "ui_warning": "this deal references a Warrant Agreement that has not been uploaded — economics are incomplete"
+    }
+  ],
+
+  "notes_for_evaluator": {
+    "matching_policy": "source_document is compared on stem (no suffix) so a single ground-truth entry covers both .docx and .pdf renderings of the same document.",
+    "metric": "precision/recall per term_type. A predicted term is a true positive if (term_type, source_document stem) matches and the parameter values agree on a per-key basis within reasonable tolerance.",
+    "rebate_ambiguity": "An extraction that fills in a retroactivity assumption WITHOUT setting ambiguity_flag=True for the REBATE term is a recall failure on the ambiguity dimension, even if the rest of the parameters match."
+  }
+}

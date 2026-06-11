@@ -1,6 +1,9 @@
 .env
 *.json
 !standard_terms.json
+!data/sample_contracts/ground_truth.json
+!data/sample_contracts/*.docx
+!data/sample_contracts/*.pdf
 __pycache__/
 *.pyc
 chroma_db/
