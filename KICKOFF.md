@@ -1,5 +1,38 @@
 # KICKOFF v4 — Deal Economics Copilot (Enterprise Spec)
 
+## BUILD STATUS
+
+**Done & committed on `deal-copilot` (also merged to `main`):**
+
+- **Phase 1** (`c01e5a6`) — schemas v1, synthetic two-document deal package (`gpu_purchase_agreement.{docx,pdf}` + `warrant_agreement.{docx,pdf}`), `ground_truth.json` covering all 12 commercial term types + warrant tranches + the unresolved-cross-reference fixture.
+- **Step 0** (`69bcd7e`) — schema retrofit for v4: added `ProvenanceClass` / `DealStatus` / `PolicyRuleKind` / `PolicyOutcome` / `DistributionKind` enums; `TermVariant`, `AssumptionProvenance`, `CapacityBridgeInputs` (with `derived_units()` helper), `GenerationTranche`, `ScenarioProbability`, `DistributionSpec`, `ChangeJournalEntry`, `PolicyRule` / `PolicyRuleResult` / `PolicyVerdict`, `DealRecord`, `ActualsRecord`. Additive fields on `CommercialTerm` (variants), `DealAssumptions` (capacity_bridge, generation_tranches, scenario_probabilities, assumption_provenance, distribution_specs), `DealPackage` (deal_id, status, counterparty, archetype, change_journal, policy_verdicts). 38 symbols exported. Phase 1 backward-compat preserved.
+- **Phase 2** (`09c5a71`) — extraction + validation + eval harness. 9 new `deal_copilot/` modules (`intake`, `retrieval`, `prompts`, `extraction_payloads`, `validators`, `review_queue`, `extraction_cache`, `term_extractor`, `eval_harness`) + 3 smoke scripts under `_smoke/`. Four-layer untrusted-input defense (nonce-delimited block, schema-constrained response, bounded-value validators, source-quote requirement). DOCX support added to `extract.py`. Cached extraction by `(sha256, prompt_version)`.
+- **Chunker fallback** (`bbb4947`) — paragraph-pack chunking in `index.chunk_contract` for header-less long documents (real SEC filings, HTML-derived PDFs); the existing section-header path is unchanged for synthetic-format docs. `data/sample_contracts/micron_intel_real.pdf` added as a real-doc test fixture.
+
+**Live verification against the synthetic deal:**
+
+- Precision **0.923**, Recall **1.000**, F1 **0.960** vs `ground_truth.json`.
+- REBATE ambiguity quantified (2 variants populated).
+- Cross-reference fixtures both pass (Warrant Agreement detected when uploaded; goes to `unresolved_cross_references` when only Doc A uploaded).
+- Prompt-injection defense holds (doctored doc with "IGNORE ALL PRIOR INSTRUCTIONS" produces no injected values).
+- Cache: re-run is 0.00s with 2 cache hits; bumping `EXTRACTION_PROMPT_VERSION` invalidates.
+
+**Live verification against the real Intel-Micron SEC filing** (`micron_intel_real.pdf`):
+
+- 5 terms extracted (TAKE_OR_PAY, PREPAYMENT, PAYMENT_TERMS, TERMINATION, LIABILITY); 7 returned `not_found=True` because the wafer-supply structure is genuinely different from the synthetic GPU deal.
+- 3 terms flagged ambiguous with notes — including PAYMENT_TERMS where `net_days` is literally `[***]` SEC-redacted; the extractor correctly refused to invent a number.
+- 1 validation warning surfaced to the review queue.
+
+## Next: Phase 3
+
+`driver_mapper.py` (terms → ModelDrivers with accounting notes; TermVariant dual-readings for the rebate ambiguity), `economics_engine.py` (quarterly P&L, scenarios, probability weighting, sensitivities, Banked Units, prepayment drawdown, capacity bridge), `data/assumptions_library.json` (per-generation defaults + globals), accounting schedules (rebate accrual walk, contract-liability schedule, peak receivables exposure), and the first `pytest` suite covering all financial math.
+
+## Phase-3 backlog (carry from real-doc smoke)
+
+- **TakeOrPayPayload.annual_minimum_pct_of_committed** must become **Optional** (`float | None = None`, drop the `gt=0` constraint). The real Intel-Micron clause uses a formula-based shortfall (unbooked wafers × Final Price), not a percentage floor; the strict schema currently forces the LLM to invent a placeholder value (caught by `ambiguity_flag` but not honest). The Phase 3 schema-touch should also add a sibling field — e.g. `shortfall_basis: Literal["pct_of_committed", "unbooked_unit_price_formula", "other"]` — so engine logic can branch on the mechanism.
+
+---
+
 Supersedes all prior KICKOFF versions. Phase 1 (schemas.py, synthetic two-document deal package, ground_truth.json) is COMPLETE and stays — do not rebuild it. Read this whole spec before planning anything; execute the build order at the bottom, which begins with a schema retrofit.
 
 The mental model: this tool is the working system of a Staff Finance Analyst on a hyperscaler GPU deal desk. The environment is dynamic — deals arrive incomplete, change three times a week, interact with each other, and end in an approval meeting where every number gets challenged. The tool's job is that no question in that meeting goes unanswered and no number lacks a paper trail.
