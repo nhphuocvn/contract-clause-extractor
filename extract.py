@@ -243,9 +243,13 @@ def read_contract_bytes(data: bytes, suffix: str) -> str:
     if suffix == ".pdf":
         reader = PdfReader(io.BytesIO(data))
         return "\n".join((page.extract_text() or "") for page in reader.pages)
+    if suffix == ".docx":
+        from docx import Document
+        document = Document(io.BytesIO(data))
+        return "\n".join(p.text for p in document.paragraphs)
     if suffix in (".txt", ".md", ""):
         return data.decode("utf-8")
-    raise ValueError(f"Unsupported file type: {suffix} (supported: .txt, .pdf)")
+    raise ValueError(f"Unsupported file type: {suffix} (supported: .txt, .pdf, .docx)")
 
 
 def read_contract(path: Path) -> str:
