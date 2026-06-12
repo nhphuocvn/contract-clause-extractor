@@ -100,6 +100,7 @@ A "deal" is a **package**: any mix of term sheet, purchase agreement, warrant ag
 
 - **[P0]** Type hints; Pydantic v2 validation on all LLM outputs; JSON mode, temperature 0, retry on parse failure; extraction cached by (file bytes, prompt version).
 - **[P0] Engine purity:** economics_engine, warrant_economics, variance, and goal-seek are pure functions of (drivers, assumptions) — no I/O, no globals. Recompute target <1s; goal-seek and Monte Carlo become trivial layers.
+- **[P0] Engine granularity for traceability (Phase 3+; already mostly satisfied):** expose every intermediate value a human would want to see in Excel as its own named field (the `QuarterRow` line items, both paybacks, accrual-walk columns, etc.), so Phase 7 can map one engine step to one Excel row. Do NOT collapse steps into combined expressions — granular fields are what make the spreadsheet traceable.
 - **[P0] pytest on ALL financial math:** rebate crossover under both ambiguity readings; take-or-pay floor + Banked Units; prepayment drawdown; NPV; warrant vesting + contra-revenue allocation; capacity bridge; probability weighting; variance bridge sums-to-delta property; goal-seek convergence; accrual walk continuity (each quarter's ending balance = next quarter's beginning).
 - **[P0] Graceful degradation:** partial extraction → flagged model; missing benchmark file → labeled absence (and staleness warning if >2 quarters old); LLM unavailable → deterministic-only mode with banner.
 - **[P0]** No real customer data; synthetic docs labeled fictional; README has the design principle, a Simplifications section (warrant valuation, accrual estimation, capacity assumptions), and the untrusted-input note.
@@ -107,6 +108,24 @@ A "deal" is a **package**: any mix of term sheet, purchase agreement, warrant ag
 ## 9. Outputs
 
 ### 9.1 Excel model [P0] — the credibility artifact
+
+**Design principle — traceability over cleverness (load-bearing for Phase 7):**
+- **Simple arithmetic only.** No INDEX/MATCH, VLOOKUP, array formulas, or nested
+  IFs. One calculation step per labeled row (`=B5*B6`, `=B7-B8`). Build the sheet
+  like a circuit: signal flows input → step → step → output, and any value traces
+  back to its inputs by eye.
+- **One engine step per row.** Each Excel row maps to one engine step, in the same
+  order (the `QuarterRow` fields already give this granularity). The spreadsheet
+  IS the engine's logic made visible.
+- **Many simple single-purpose tabs over few clever ones.** A finance person who
+  didn't build it must be able to follow any number to its source and edit any
+  assumption confidently.
+- **Flag every assumption with more than one defensible value** (rebate
+  dual-reading, `[***]`-redacted values, library-default guesses): show the value
+  used, the alternative, the dollar impact of the choice, and a "confirm with
+  [team]" flag. Include a simple A/B toggle cell for the rebate reading
+  (prospective vs retroactive-within-year) that flows through the formula stack.
+
 openpyxl workbook:
 - **Assumptions tab:** every input, provenance class color-coded, mandatory Source/Basis column. Named ranges for key inputs; formula cells locked (sheet protection with inputs unlocked).
 - **Drivers tab:** terms → drivers with source clause text and document/section.
