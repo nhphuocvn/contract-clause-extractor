@@ -27,6 +27,7 @@ from typing import Any
 
 from deal_copilot.schemas import (
     AssumptionProvenance,
+    AssumptionType,
     DealAssumptions,
     ProvenanceClass,
 )
@@ -67,17 +68,21 @@ def _provenance(entry: dict[str, Any], as_of: datetime) -> AssumptionProvenance:
     except ValueError:
         basis = ProvenanceClass.LIBRARY_DEFAULT
     note = entry.get("note", "")
-    # `owner` / `assumption_type` are forward-compatible register tags (§5). Until
-    # Phase 6 promotes them to first-class AssumptionProvenance fields, fold the
-    # owner into the note so the accountability is not lost.
-    owner = entry.get("owner")
-    if owner:
-        note = f"{note} [owner: {owner}]" if note else f"[owner: {owner}]"
     lib_as_of = entry.get("as_of")
     if lib_as_of:
         note = f"{note} (library as_of {lib_as_of})" if note else f"library as_of {lib_as_of}"
+    # §5 register dimensions: owner (accountability) and assumption_type.
+    owner = entry.get("owner", "")
+    atype: AssumptionType | None = None
+    raw_type = entry.get("assumption_type")
+    if raw_type:
+        try:
+            atype = AssumptionType(str(raw_type).upper())
+        except ValueError:
+            atype = None
     return AssumptionProvenance(
-        value=entry["value"], basis=basis, note=note, as_of=as_of
+        value=entry["value"], basis=basis, note=note, as_of=as_of,
+        owner=owner, assumption_type=atype,
     )
 
 

@@ -15,18 +15,24 @@
     "wacc": {
       "value": 0.10,
       "basis_class": "LIBRARY_DEFAULT",
+      "assumption_type": "policy_number",
+      "owner": "Treasury",
       "note": "Discount rate for NPV. Corporate WACC placeholder; confirm with Treasury per deal.",
       "as_of": "2026-06-11"
     },
     "tax_rate": {
       "value": 0.21,
       "basis_class": "LIBRARY_DEFAULT",
+      "assumption_type": "policy_number",
+      "owner": "Tax / Treasury",
       "note": "U.S. federal statutory corporate rate.",
       "as_of": "2026-06-11"
     },
     "opex_allocation_pct": {
       "value": 0.12,
       "basis_class": "LIBRARY_DEFAULT",
+      "assumption_type": "strategic_judgment",
+      "owner": "FP&A",
       "note": "Allocated operating expense as a fraction of net revenue; deal-desk default.",
       "as_of": "2026-06-11"
     },
@@ -49,7 +55,9 @@
     "unit_cogs_usd": {
       "value": 15000.0,
       "basis_class": "LIBRARY_DEFAULT",
-      "note": "Blended per-unit cost of goods sold; overridden per generation when a COGS curve is supplied.",
+      "assumption_type": "market_data",
+      "owner": "cost accounting",
+      "note": "Blended per-unit cost of goods sold; overridden per generation when a COGS curve is supplied. Confirm with cost accounting.",
       "as_of": "2026-06-11"
     },
     "payment_terms_dso_map": {
@@ -67,6 +75,8 @@
     "current_stock_price_usd": {
       "value": 470.0,
       "basis_class": "LIBRARY_DEFAULT",
+      "assumption_type": "market_data",
+      "owner": "Capital Markets (refresh before use)",
       "note": "market price as of 2026-06-11, update before warrant analysis",
       "as_of": "2026-06-11"
     },
@@ -79,6 +89,8 @@
     "shares_outstanding": {
       "value": 1618000000.0,
       "basis_class": "LIBRARY_DEFAULT",
+      "assumption_type": "market_data",
+      "owner": "Capital Markets (latest 10-Q)",
       "note": "Seller shares outstanding (~1.618B), for warrant dilution %. Refresh from latest 10-Q before relying on dilution.",
       "as_of": "2026-06-11"
     },

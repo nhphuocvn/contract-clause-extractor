@@ -83,6 +83,16 @@ class ProvenanceClass(str, Enum):
     USER_OVERRIDE = "USER_OVERRIDE"         # analyst typed a value over a default
 
 
+class AssumptionType(str, Enum):
+    """Classification of a model input for the §5 Assumption Register — what kind
+    of number it is, which drives who owns confirming it and whether it becomes
+    an Assumption Gap Report line."""
+    CONTRACT_FACT = "CONTRACT_FACT"             # extracted from a deal document
+    MARKET_DATA = "MARKET_DATA"                 # external/refreshable (COGS, stock price)
+    POLICY_NUMBER = "POLICY_NUMBER"             # set by a function (WACC→Treasury, tax)
+    STRATEGIC_JUDGMENT = "STRATEGIC_JUDGMENT"   # deal-team estimate (vest probs, demand)
+
+
 class DealStatus(str, Enum):
     """Pipeline status for the deal registry / dashboard."""
     DRAFT = "DRAFT"
@@ -374,6 +384,19 @@ class AssumptionProvenance(BaseModel):
     as_of: datetime = Field(
         description="ISO 8601 timestamp set by the caller — when this provenance "
                     "was recorded (not when the schema was constructed).",
+    )
+    assumption_type: "AssumptionType | None" = Field(
+        default=None,
+        description="§5 register classification (contract_fact / market_data / "
+                    "policy_number / strategic_judgment). Drives the Assumption Gap "
+                    "Report: market_data, strategic_judgment, and placeholder inputs "
+                    "become gap lines addressed to their owner.",
+    )
+    owner: str = Field(
+        default="",
+        description="§5 accountability column — who confirms this number "
+                    "(e.g. 'Treasury', 'cost accounting', 'deal team'). The piece the "
+                    "provenance system previously lacked.",
     )
 
 
@@ -940,8 +963,107 @@ class CRBMemo(BaseModel):
         default_factory=list,
         description="2-3 plain-English benchmark comparisons from benchmarks.py.",
     )
+    warrant_section: str = Field(
+        default="",
+        description="Warrant economics narrative. MUST carry the §4 correlation "
+                    "caveat — that the spot-price + independent-vest-probability "
+                    "valuation likely understates upside-scenario warrant cost "
+                    "because deployment milestones and stock hurdles are positively "
+                    "correlated. Empty when the deal has no warrant.",
+    )
+    policy_verdict: "PolicyVerdict | None" = Field(
+        default=None,
+        description="The CRB policy verdict for this version (pass/escalate/block + "
+                    "required approvers). Numbers injected from the policy engine.",
+    )
+    gap_report_lines: list["AssumptionGapLine"] = Field(
+        default_factory=list,
+        description="Assumption Gap Report lines shown in the memo when gaps exist "
+                    "(§9.6). Ranked by dollar sensitivity.",
+    )
     recommendation: str
     approval_conditions: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Assumption Register (§5) and Assumption Gap Report (§9.6)
+# ---------------------------------------------------------------------------
+
+
+class RegisterEntry(BaseModel):
+    """One row of the §5 Assumption Register: every model input with what it is,
+    where it came from, and whose sign-off it needs. Surfaces as its own Excel
+    tab and feeds the Assumption Gap Report."""
+    model_config = ConfigDict(extra="forbid")
+
+    field_path: str = Field(
+        description="Dotted/indexed path of the input, e.g. 'assumptions.unit_cogs_usd', "
+                    "'terms[PAYMENT_TERMS].net_days', 'warrant.tranche_vest_probabilities[2]'.",
+    )
+    label: str = Field(description="Human-readable name for the row.")
+    value: Any = Field(default=None, description="Current value of the input.")
+    assumption_type: AssumptionType
+    basis: ProvenanceClass
+    owner: str = Field(description="Who confirms this number (the accountability column).")
+    note: str = Field(default="", description="Source/basis citation or confirmation ask.")
+
+
+class AssumptionGapLine(BaseModel):
+    """One ranked clarifying question for the deal team (§9.6), with the dollar
+    sensitivity of the unknown and the owner who resolves it. Drawn from the
+    register (strategic_judgment / market_data / placeholder inputs) and from
+    ambiguous terms (the rebate dual-reading delta is the canonical example)."""
+    model_config = ConfigDict(extra="forbid")
+
+    question: str = Field(description="The clarifying question, in plain English.")
+    field_path: str = Field(default="", description="Input or term this gap traces to.")
+    owner: str = Field(description="Who resolves it (e.g. 'Legal', 'Treasury', 'deal team').")
+    dollar_sensitivity_usd: float | None = Field(
+        default=None,
+        description="Dollar impact of the unknown (e.g. rebate ambiguity $41.0M). "
+                    "None when not quantifiable; such lines rank last.",
+    )
+    basis_note: str = Field(
+        default="",
+        description="How the sensitivity was computed, or the source of the gap.",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Benchmarks (§9.2 / §9.5) — portfolio/industry comparisons with staleness
+# ---------------------------------------------------------------------------
+
+
+class Benchmark(BaseModel):
+    """One portfolio/industry benchmark value, loaded from data/benchmarks.json."""
+    model_config = ConfigDict(extra="forbid")
+
+    metric: str = Field(description="e.g. 'blended_gross_margin_pct', 'payment_terms_net_days'.")
+    value: float
+    unit: str = Field(default="", description="e.g. 'fraction', 'days', 'usd'.")
+    as_of: datetime = Field(description="When the benchmark was measured (ISO 8601).")
+    source: str = Field(default="", description="Provenance of the benchmark figure.")
+
+
+class BenchmarkComparison(BaseModel):
+    """The deal's value for one metric compared to its benchmark, with a
+    plain-English verdict and a staleness flag (>2 quarters old)."""
+    model_config = ConfigDict(extra="forbid")
+
+    metric: str
+    deal_value: float | None = Field(default=None)
+    benchmark_value: float | None = Field(default=None)
+    verdict_sentence: str = Field(description="Plain-English comparison for the memo.")
+    is_stale: bool = Field(
+        default=False,
+        description="True when the benchmark is more than 2 quarters old as of the "
+                    "evaluation date.",
+    )
+    benchmark_present: bool = Field(
+        default=True,
+        description="False when no benchmark file/entry exists — a labeled absence "
+                    "rather than a silent gap (graceful degradation).",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1116,6 +1238,7 @@ __all__ = [
     "ScenarioName",
     "ViewMode",
     "ProvenanceClass",
+    "AssumptionType",
     "DealStatus",
     "PolicyRuleKind",
     "PolicyOutcome",
@@ -1157,6 +1280,12 @@ __all__ = [
     # Memo
     "RiskItem",
     "CRBMemo",
+    # Assumption register / gap report
+    "RegisterEntry",
+    "AssumptionGapLine",
+    # Benchmarks
+    "Benchmark",
+    "BenchmarkComparison",
     # Policy / CRB
     "PolicyRule",
     "PolicyRuleResult",
