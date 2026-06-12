@@ -23,7 +23,7 @@ The result: every figure in the model traces back either to a specific clause in
 
 ## What works today
 
-This is a **backend prototype under active development.** Two things are built and verified end-to-end:
+This is a **backend prototype under active development.** The core is built and verified end-to-end — contract extraction, the economics engine, and the CRB-ready outputs around it:
 
 ### 1. Contract extraction
 - Pulls all twelve commercial term types (pricing, volume commitment, rebates, take-or-pay, prepayment, payment terms, MFN price protection, termination, liability, supply commitment, warrant/equity, cross-references) from purchase agreements in DOCX or PDF.
@@ -37,8 +37,10 @@ A pure, fully-tested financial model that turns the extracted terms into deal ec
 - **Ambiguity quantified, not guessed.** The synthetic rebate clause is genuinely ambiguous about whether crossing a volume tier applies retroactively. Rather than pick one reading, the tool models **both** and reports the gap: **$142.5M vs $183.5M — a $41M question** flagged for Legal to resolve before signing.
 - **Warrant / equity valuation.** When a deal hands the customer stock (as these deals increasingly do), the tool values it as consideration given to the customer. On the synthetic deal at a $470 share price the warrant is worth **~$3.4B — larger than the deal's gross margin** — collapsing the effective price per unit from $25,000 to ~$1,490. It shows this as a **range** ($2.3B–$4.2B) across conservative/base/aggressive assumptions, because the inputs are strategic judgment, not contract facts.
 - **Accounting schedules** an accountant can trust — rebate accrual walk, prepayment drawdown, and peak receivables exposure, each reconciling period to period.
+- **Working capital modeled on a monthly grid.** Cash timing (not revenue recognition) runs monthly across all three legs — collections (DSO), supplier payments (DPO), and the inventory build (lead time) — so net-30 / net-60 / net-90 produce genuinely different peak receivables (**$166.7M / $333.3M / $500.0M**), NPV, and operating cash draw. The ramp's inventory build shows up as the **−$157M** working-capital draw it really is, pushing operational payback to Q6.
+- **CRB-ready outputs.** A configurable **policy engine** routes the deal (verdict + required approvers), an **Assumption Register** tags every input by type and owner, an **Assumption Gap Report** ranks the open questions by dollar sensitivity, and a **CRB memo** is assembled with every number injected from the engine — the AI only writes the prose.
 
-**Quality bar:** every piece of financial math is covered by tests whose expected values were computed **by hand**, not read back from the code — **71 passing tests.**
+**Quality bar:** every piece of financial math is covered by tests whose expected values were computed **by hand**, not read back from the code — **139 passing tests.**
 
 ---
 
@@ -46,16 +48,18 @@ A pure, fully-tested financial model that turns the extracted terms into deal ec
 
 This is a backend prototype. The extraction and economics core are built and tested; the analyst-facing application around them is planned.
 
-**Built (Phases 1–5):**
+**Built (Phases 1–6):**
 - ✅ Data schemas + a synthetic two-document deal package with ground truth
 - ✅ Contract extraction, validation, untrusted-input defense, and an accuracy harness
 - ✅ Economics engine — P&L, scenarios, NPV, sensitivities, rebate-ambiguity range, accounting schedules
+- ✅ Monthly working-capital cash layer — DSO / DPO / inventory-lead, so payment terms drive genuinely different receivables, NPV, and the operating cash draw
 - ✅ Warrant / equity valuation, wired into the model
 - ✅ Negotiation tools — deal versioning, change journal, a "variance bridge" that explains what changed between two negotiation rounds dollar by dollar (and reconciles exactly to the total), ad-hoc manual line items, and goal-seek ("what ASP holds gross margin at the target?")
+- ✅ Policy engine — encodes a Contract Review Board's rules and auto-routes a deal (verdict + required approvers: "ESCALATE — CFO, General Counsel, Treasury")
+- ✅ Assumption Register + Assumption Gap Report — every input typed and owner-tagged; open questions ranked by dollar sensitivity (COGS $225M → cost accounting; rebate ambiguity $41M → Legal)
+- ✅ CRB memo + benchmarks + glossary — a one-page approval memo, prose written by the AI but every number injected from the engine; portfolio benchmarks with a staleness check; a no-jargon glossary
 
 **Planned:**
-- ⬜ Policy engine — encode a Contract Review Board's approval rules and auto-route a deal ("requires CFO approval: margin below floor; MFN present")
-- ⬜ CRB memo — a one-page approval memo, prose written by the AI but every number injected from the engine
 - ⬜ Excel export — a live-formula workbook built like a circuit, so a finance person can trace and edit any number
 - ⬜ A user interface for the deal-modeling workflow
 
