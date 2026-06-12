@@ -29,12 +29,13 @@
 - **Phase 3 engine** (`9c3b834`) — `assumptions_library.py` + `data/assumptions_library.json` (only I/O module), `driver_mapper.py` (terms → ModelDrivers; rebate dual-variant **$142.5M prospective vs $183.5M retroactive, $41M delta**), `economics_engine.py` (pure quarterly P&L, 4 scenarios incl. take-or-pay+Banked Units, net-operating cash + NPV, payback shown both ways — financed Q0 vs deployment Q5, probability weighting, ±10% tornado, capacity bridge, effective-ASP), `accounting_schedules.py` (rebate accrual walk, prepayment schedule, peak receivables; `ending[q]==beginning[q+1]`). Warrant contra wired as a zero slot.
 - **Phase 4 warrant economics** (`c5e5ff2`) — `warrant_economics.py` (pure): intrinsic + illustrative Black-Scholes valuation, band-allocated contra-revenue schedule that fills the Phase 3 slot, dilution, value-at-price asymmetry, and a conservative/base/aggressive expected-value **range**. Vest probabilities and measurement price are JUDGMENT inputs (PLACEHOLDER provenance, "confirm with deal team"). At AMD spot $470 the warrant is **$3.384B expected (range $2.256B–$4.230B)** — larger than gross margin; effective net ASP $25,000 → **$1,490.48/unit**; GAAP net revenue $3,607.5M → **$223.572M**; dilution 0.7417%.
 - **Docs** (`056ff16`) — KICKOFF §8/§9.1 design principles: Excel traceability-over-cleverness, engine-granularity, and the Warrant Assumptions tab.
+- **Phase 5 negotiation core** (`ce1c690`) — `versioning.py` (append-only deep `DealVersion` snapshots + `build_change_journal`), `variance_bridge.py` (sequential/waterfall attribution between two versions on net_revenue / gross_margin / NPV; steps telescope to the total delta, `residual_usd` checked against an independent eval of B = the **sums-to-delta** property), ad-hoc drivers wired into the engine as a visible `adhoc_adjustment` line, and `goal_seek.py` (**P1, done** — deterministic bisection on ASP / COGS / take-or-pay % / prepayment). Bridge demo: a counter (ASP cut + rebate bump + cost-down + marketing credit) walks to a −$192.0M gross-margin delta with $0 residual.
 
-**All financial math is hand-calc pinned: `71 tests passing` (latest `c5e5ff2`).**
+**All financial math is hand-calc pinned: `88 tests passing` (latest `ce1c690`).**
 
-## Next: Phase 5 — negotiation core
+## Next: Phase 6 — policy, benchmarks, reports
 
-Deal versioning (named, timestamped snapshots of terms + assumptions), change journal (timestamp/field/old/new/note per edit), variance bridge (any two versions → driver-level walk with the **sums-to-delta** property test), and ad-hoc drivers. Goal-seek is the [P1] within this phase. Pure-engine, hand-calc-tested, per the Phase 3/4 standard.
+Policy engine (`data/crb_policy.json` → per-rule pass/escalate/block + required approvers), benchmarks (with staleness check), the CRB memo (LLM prose, every number injected from the engine — incl. the warrant correlation caveat per §4), the Assumption Gap Report (drawing from the §5 Assumption Register), and the glossary. Pure/tested where there is math; per the Phase 3–5 standard.
 
 ## Phase-3 backlog — RESOLVED
 

@@ -46,14 +46,14 @@ A pure, fully-tested financial model that turns the extracted terms into deal ec
 
 This is a backend prototype. The extraction and economics core are built and tested; the analyst-facing application around them is planned.
 
-**Built (Phases 1–4):**
+**Built (Phases 1–5):**
 - ✅ Data schemas + a synthetic two-document deal package with ground truth
 - ✅ Contract extraction, validation, untrusted-input defense, and an accuracy harness
 - ✅ Economics engine — P&L, scenarios, NPV, sensitivities, rebate-ambiguity range, accounting schedules
 - ✅ Warrant / equity valuation, wired into the model
+- ✅ Negotiation tools — deal versioning, change journal, a "variance bridge" that explains what changed between two negotiation rounds dollar by dollar (and reconciles exactly to the total), ad-hoc manual line items, and goal-seek ("what ASP holds gross margin at the target?")
 
 **Planned:**
-- ⬜ Negotiation tools — deal versioning, change journal, and a "variance bridge" explaining what changed between two rounds of a negotiation, dollar by dollar
 - ⬜ Policy engine — encode a Contract Review Board's approval rules and auto-route a deal ("requires CFO approval: margin below floor; MFN present")
 - ⬜ CRB memo — a one-page approval memo, prose written by the AI but every number injected from the engine
 - ⬜ Excel export — a live-formula workbook built like a circuit, so a finance person can trace and edit any number
