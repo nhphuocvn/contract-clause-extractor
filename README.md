@@ -1,119 +1,111 @@
-# Contract Clause Extractor
+# Deal Economics Copilot
 
-Contract Clause Extractor is a Python tool that pulls structured fields from commercial contracts using OpenAI's structured-output API, attaches a verbatim source quote to every extracted value so reviewers can verify the extraction against the original document, and applies a configurable set of risk-scoring rules to flag clauses that warrant attention. It ships with a CLI for batch processing (with side-by-side comparison of multiple contracts) and a Streamlit UI for interactive review.
+**A tool that reads a commercial contract and builds the full financial model of the deal — with every number traceable back to the clause it came from.**
 
-## Features
+When a large supply or purchase deal lands on a finance team's desk, someone has to turn dense legal prose into numbers: How much revenue? At what margin? What happens if the customer buys less than promised? What is the equity we handed them actually worth? Today that work is manual, slow, and hard to audit. This project automates the mechanical parts and shows its work at every step.
 
-- **Structured extraction.** Twelve top-level fields — parties, effective date, term length, auto-renewal, payment terms, termination clauses, SLA commitments, indemnity cap, limitation of liability, governing law, confidentiality period, data protection — returned as typed Pydantic objects via OpenAI's `response_format` API. No regex parsing of free-form completions.
-- **Sub-schemas for compound clauses.** `termination_clauses` splits into `for_cause`, `for_convenience`, and `for_non_payment`. `data_protection` splits into `encryption`, `data_residency`, `certifications`, and `compliance_frameworks`.
-- **Source quotes.** Every extracted value is paired with a verbatim excerpt from the source text, so reviewers can verify each datum without re-reading the full contract.
-- **Risk scoring.** Five built-in rules: short auto-renewal notice (< 90 days → *medium*), missing or > 2× liability cap (*high*), governing law outside a configurable favorable list (*review recommended*), missing SLA (*high*), short confidentiality period (< 3 years → *low protection*). Rules are pure Python and easy to extend.
-- **Side-by-side comparison.** Running on two or more contracts emits a `comparison_report.json` with a row per key term across all contracts, plus overall risk level and flag count per contract.
-- **Streamlit UI.** Drag-and-drop upload (TXT or PDF), per-contract tabs with colored risk badges, an auto-added "Compare" tab when two or more contracts are uploaded, and one-click JSON download.
-- **PDF support.** Text-based PDFs are read via PyPDF2 with no separate preprocessing step.
+It is the working toolkit of a finance analyst on a hyperscaler GPU deal desk — the kind of multi-billion-dollar, multi-year chip-supply agreement (think the recent AMD/OpenAI and Nvidia-scale deals) where the contract is long, the terms interact, and an approval committee will challenge every figure.
 
-## Tech stack
+---
 
-- Python 3.10+
-- OpenAI Python SDK with structured outputs (`response_format`) — model: `gpt-4o-mini`
-- Pydantic v2 (extraction schema and risk-summary models)
-- Streamlit (web UI)
-- PyPDF2 (PDF text extraction)
-- python-dotenv (local `.env` loading)
+## The core principle
 
-## Installation
+> **The AI extracts and explains. Deterministic, tested code computes. No number produced by the AI ever enters a calculation.**
 
+Large language models are excellent at reading a contract and pulling out "the take-or-pay floor is 80% of committed volume." They are unreliable at arithmetic and cannot be audited. So this tool draws a hard line:
+
+- The **AI** reads the documents, extracts each commercial term as structured data, and attaches a **verbatim source quote** to every value so a human can verify it against the original.
+- **Plain, tested Python** does all the math — the P&L, the scenarios, the valuations — as pure functions with no AI in the loop.
+
+The result: every figure in the model traces back either to a specific clause in the contract or to a clearly-labelled, owner-assigned assumption. Nothing is a black box.
+
+---
+
+## What works today
+
+This is a **backend prototype under active development.** Two things are built and verified end-to-end:
+
+### 1. Contract extraction
+- Pulls all twelve commercial term types (pricing, volume commitment, rebates, take-or-pay, prepayment, payment terms, MFN price protection, termination, liability, supply commitment, warrant/equity, cross-references) from purchase agreements in DOCX or PDF.
+- **~92% precision / 100% recall** against a hand-built ground-truth on a synthetic AMD–Meta GPU deal, and tested against a **real Intel–Micron SEC filing** — where it correctly extracted what was there and honestly returned "not found" for terms the real contract structures differently, including refusing to invent a number for an SEC-redacted `[***]` payment term.
+- **Defends against malicious contracts.** Contract text is treated as data, never as instructions; a planted "IGNORE ALL PRIOR INSTRUCTIONS" clause produces no injected values.
+
+### 2. Economics engine
+A pure, fully-tested financial model that turns the extracted terms into deal economics:
+- **Quarterly P&L** — gross revenue → rebates → warrant cost → net revenue → COGS → margin, in both GAAP and cash views.
+- **Scenarios** — base case, downside (customer buys only the take-or-pay floor, with "banked units" mechanics), upside (+15% volume), and early termination — each with NPV, and payback shown two ways (with and without customer prepayment financing).
+- **Ambiguity quantified, not guessed.** The synthetic rebate clause is genuinely ambiguous about whether crossing a volume tier applies retroactively. Rather than pick one reading, the tool models **both** and reports the gap: **$142.5M vs $183.5M — a $41M question** flagged for Legal to resolve before signing.
+- **Warrant / equity valuation.** When a deal hands the customer stock (as these deals increasingly do), the tool values it as consideration given to the customer. On the synthetic deal at a $470 share price the warrant is worth **~$3.4B — larger than the deal's gross margin** — collapsing the effective price per unit from $25,000 to ~$1,490. It shows this as a **range** ($2.3B–$4.2B) across conservative/base/aggressive assumptions, because the inputs are strategic judgment, not contract facts.
+- **Accounting schedules** an accountant can trust — rebate accrual walk, prepayment drawdown, and peak receivables exposure, each reconciling period to period.
+
+**Quality bar:** every piece of financial math is covered by tests whose expected values were computed **by hand**, not read back from the code — **71 passing tests.**
+
+---
+
+## Status: active development
+
+This is a backend prototype. The extraction and economics core are built and tested; the analyst-facing application around them is planned.
+
+**Built (Phases 1–4):**
+- ✅ Data schemas + a synthetic two-document deal package with ground truth
+- ✅ Contract extraction, validation, untrusted-input defense, and an accuracy harness
+- ✅ Economics engine — P&L, scenarios, NPV, sensitivities, rebate-ambiguity range, accounting schedules
+- ✅ Warrant / equity valuation, wired into the model
+
+**Planned:**
+- ⬜ Negotiation tools — deal versioning, change journal, and a "variance bridge" explaining what changed between two rounds of a negotiation, dollar by dollar
+- ⬜ Policy engine — encode a Contract Review Board's approval rules and auto-route a deal ("requires CFO approval: margin below floor; MFN present")
+- ⬜ CRB memo — a one-page approval memo, prose written by the AI but every number injected from the engine
+- ⬜ Excel export — a live-formula workbook built like a circuit, so a finance person can trace and edit any number
+- ⬜ A user interface for the deal-modeling workflow
+
+**A note on the UI:** the *economics / deal-modeling* layer described above has **no interface yet** — it runs and is exercised through its test suite and small demo scripts. The repository also contains the project's predecessor, a simpler **Contract Clause Extractor** with a working command-line tool and Streamlit web app for single-clause field extraction; the Deal Economics Copilot is built on that foundation. (See *Repository layout* below.)
+
+---
+
+## A concrete example of the judgment it surfaces
+
+On the synthetic GPU deal, a naïve read says "$3.75B of revenue at a healthy margin." The tool surfaces what an experienced analyst would actually flag:
+
+| Insight | Why it matters |
+|---|---|
+| Rebate ambiguity = **$41M** | One sentence in the contract has two defensible readings worth $41M apart — resolve with Legal *before* signing. |
+| Warrant cost ≈ **$3.4B** | The "free" stock given to the customer is worth more than the deal's gross margin; effective price per unit drops from $25,000 to ~$1,490. |
+| Warrant cost is **asymmetric** | It rises precisely when the deal succeeds and the seller's stock climbs — a risk that grows when things go well. |
+
+These are exactly the questions that get asked in an approval meeting — and the tool answers each with a number tied to its source.
+
+---
+
+## How it is built (for the technically curious)
+
+- **Python 3.13**, Pydantic v2 for every data shape, OpenAI structured-output API for extraction (temperature 0, schema-constrained, retry on parse failure, cached by file hash).
+- The economics engine is **pure functions** — no file access, no global state — so results are reproducible, fast to recompute, and trivially testable. Every intermediate value a human would want to see is its own named field.
+- Assumptions come from a versioned library with **provenance on every value** (contract clause / market data / policy number / strategic judgment), each carrying who is accountable for confirming it.
+
+### Repository layout
+- `deal_copilot/` — the Deal Economics Copilot (this README): extraction, validation, economics engine, warrant economics.
+- `tests/` — the 71 hand-verified financial tests.
+- `data/` — the synthetic deal package, ground truth, and the assumptions library.
+- `extract.py`, `app.py`, `index.py`, `query.py`, `excel_export.py` — the predecessor **Contract Clause Extractor** (CLI + Streamlit UI) the copilot builds on.
+- `KICKOFF.md` — the full product specification and build log.
+
+### Running the tests
 ```powershell
-# 1. Clone the repo
-git clone https://github.com/nhphuocvn/contract-clause-extractor.git
-cd contract-clause-extractor
-
-# 2. Install dependencies
-python -m pip install openai pydantic PyPDF2 python-dotenv streamlit openpyxl
-
-# 3. Configure your OpenAI API key
-#    Create a .env file in the project root containing:
-#       OPENAI_API_KEY=sk-...
+python -m pip install openai pydantic PyPDF2 python-dotenv streamlit openpyxl python-docx pytest
+python -m pytest tests/ -v
 ```
 
-The `.env` file is gitignored, so the key will not be committed.
-
-## Usage
-
-### CLI
-
-Process one or more contracts:
-
+Two demo scripts print the economics and warrant analysis for the synthetic deal (no API key needed):
 ```powershell
-python extract.py sample_contract.txt sample_contract_2.txt
+python -m deal_copilot._smoke.compute_phase3_economics
+python -m deal_copilot._smoke.compute_warrant_economics
 ```
 
-For each input file `foo.txt` or `foo.pdf`, the script writes `foo.json` next to it, prints any risk flags to the terminal, and — when two or more contracts succeed — writes a `comparison_report.json` summarizing the differences.
+All sample documents are **synthetic and labelled fictional**; no real customer data is used.
 
-### Excel export
-
-After running `extract.py`, export the JSON results to an executive Excel workbook:
-
-```powershell
-python excel_export.py sample_contract.json sample_contract_2.json -o Portfolio.xlsx
-```
-
-The workbook has four sheets:
-
-- **README** — purpose and pipeline notes.
-- **Portfolio** — one row per contract with all key fields and risk levels.
-- **AI Risk Findings** — flattened paralegal findings across all contracts.
-- **Source Quotes** — audit trail pairing every value with its verbatim contract excerpt.
-
-### Streamlit UI
-
-```powershell
-streamlit run app.py
-```
-
-Opens at `http://localhost:8501`. Upload one or more contracts to see extracted fields, risk flags, and (with two or more contracts) a side-by-side comparison.
-
-## Example output
-
-Per-contract JSON (excerpt):
-
-```json
-{
-  "parties": {
-    "value": [
-      {"name": "Acme Cloud Solutions, Inc.", "role": "Provider"},
-      {"name": "GlobalTech Enterprises, LLC", "role": "Customer"}
-    ],
-    "source_quote": "by and between Acme Cloud Solutions, Inc., ..."
-  },
-  "auto_renewal": {
-    "value": "successive one (1) year periods; 90 days written notice of non-renewal",
-    "source_quote": "this Agreement shall automatically renew for successive one (1) year periods ... unless either party provides written notice of non-renewal at least ninety (90) days prior to the end of the then-current term."
-  },
-  "risk_summary": {
-    "flags": [],
-    "overall_risk": "low"
-  }
-}
-```
-
-In the Streamlit UI, each uploaded contract gets its own tab showing:
-
-- A header row with the file name and an overall risk badge (green for *low*, yellow for *medium* / *low protection*, blue for *review recommended*, red for *high*).
-- Color-coded risk flag cards, each containing the rule name, an explanation, and the supporting source quote.
-- A sortable, scrollable table of all extracted fields with their values and source quotes.
-- A **Download JSON** button to save the full extraction for that contract.
-
-When two or more contracts are uploaded, an additional **Compare** tab shows a side-by-side dataframe of key terms (parties, term length, payment, caps, SLA, governing law, etc.) across all contracts, with a download button for `comparison_report.json`.
-
-## Roadmap
-
-- **RAG-based portfolio search.** Index extracted fields and source clauses across an organization's signed contracts, then answer natural-language queries like *"which of our customers have governing law outside the US?"* or *"show every contract whose confidentiality period is under three years."*
-- **Real SEC EDGAR contracts.** Validate the extractor against material contracts filed as 10-K / 10-Q exhibits to test generalization beyond hand-written samples.
-- **Additional contract types.** Extend the schemas to cover NDAs, employment agreements, vendor MSAs with statements of work, and procurement contracts. Each type adds its own field set and targeted risk rules.
-- **Clause-level diff.** Semantic diff between two versions of the same contract (e.g., redline vs. final) for negotiation history.
-- **Human-in-the-loop review.** Per-field confidence scoring and a review queue for low-confidence extractions.
+---
 
 ## About the author
 
-Built by [@nhphuocvn](https://github.com/nhphuocvn), drawing on 10+ years of experience in Quote-to-Cash and finance systems transformation. The project addresses a recurring pain point from those years: deal desks, legal, and finance teams spending substantial time on contract review that is largely mechanical — locate the cap, the term, the renewal trigger — work that is well-suited to structured extraction paired with verifiable source quotes.
+Built by [@nhphuocvn](https://github.com/nhphuocvn), drawing on 10+ years in Quote-to-Cash and finance-systems transformation. The project comes from a recurring frustration in those years: deal desks, legal, and finance spend enormous effort turning contracts into models and defending the numbers in approval meetings — work that is mechanical enough to automate, but only if every figure stays traceable to its source. That traceability, not the automation, is the point.
