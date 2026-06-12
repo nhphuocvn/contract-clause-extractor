@@ -23,13 +23,22 @@
 - 3 terms flagged ambiguous with notes — including PAYMENT_TERMS where `net_days` is literally `[***]` SEC-redacted; the extractor correctly refused to invent a number.
 - 1 validation warning surfaced to the review queue.
 
-## Next: Phase 3
+**Committed on `deal-copilot` (pushed to origin; not yet merged to `main`):**
 
-`driver_mapper.py` (terms → ModelDrivers with accounting notes; TermVariant dual-readings for the rebate ambiguity), `economics_engine.py` (quarterly P&L, scenarios, probability weighting, sensitivities, Banked Units, prepayment drawdown, capacity bridge), `data/assumptions_library.json` (per-generation defaults + globals), accounting schedules (rebate accrual walk, contract-liability schedule, peak receivables exposure), and the first `pytest` suite covering all financial math.
+- **Phase 3 schema fix** (`5d97a7f`) — formula-based take-or-pay: `TakeOrPayPayload.annual_minimum_pct_of_committed` now `float | None`; added `shortfall_basis` Literal (`pct_of_committed` / `unbooked_unit_price_formula` / `other`) + `shortfall_formula_description`; prompt branches on basis (`EXTRACTION_PROMPT_VERSION` v1→v2); validators skip formula-basis terms and route them to manual review. (Resolves the real-doc backlog below.)
+- **Phase 3 engine** (`9c3b834`) — `assumptions_library.py` + `data/assumptions_library.json` (only I/O module), `driver_mapper.py` (terms → ModelDrivers; rebate dual-variant **$142.5M prospective vs $183.5M retroactive, $41M delta**), `economics_engine.py` (pure quarterly P&L, 4 scenarios incl. take-or-pay+Banked Units, net-operating cash + NPV, payback shown both ways — financed Q0 vs deployment Q5, probability weighting, ±10% tornado, capacity bridge, effective-ASP), `accounting_schedules.py` (rebate accrual walk, prepayment schedule, peak receivables; `ending[q]==beginning[q+1]`). Warrant contra wired as a zero slot.
+- **Phase 4 warrant economics** (`c5e5ff2`) — `warrant_economics.py` (pure): intrinsic + illustrative Black-Scholes valuation, band-allocated contra-revenue schedule that fills the Phase 3 slot, dilution, value-at-price asymmetry, and a conservative/base/aggressive expected-value **range**. Vest probabilities and measurement price are JUDGMENT inputs (PLACEHOLDER provenance, "confirm with deal team"). At AMD spot $470 the warrant is **$3.384B expected (range $2.256B–$4.230B)** — larger than gross margin; effective net ASP $25,000 → **$1,490.48/unit**; GAAP net revenue $3,607.5M → **$223.572M**; dilution 0.7417%.
+- **Docs** (`056ff16`) — KICKOFF §8/§9.1 design principles: Excel traceability-over-cleverness, engine-granularity, and the Warrant Assumptions tab.
 
-## Phase-3 backlog (carry from real-doc smoke)
+**All financial math is hand-calc pinned: `71 tests passing` (latest `c5e5ff2`).**
 
-- **TakeOrPayPayload.annual_minimum_pct_of_committed** must become **Optional** (`float | None = None`, drop the `gt=0` constraint). The real Intel-Micron clause uses a formula-based shortfall (unbooked wafers × Final Price), not a percentage floor; the strict schema currently forces the LLM to invent a placeholder value (caught by `ambiguity_flag` but not honest). The Phase 3 schema-touch should also add a sibling field — e.g. `shortfall_basis: Literal["pct_of_committed", "unbooked_unit_price_formula", "other"]` — so engine logic can branch on the mechanism.
+## Next: Phase 5 — negotiation core
+
+Deal versioning (named, timestamped snapshots of terms + assumptions), change journal (timestamp/field/old/new/note per edit), variance bridge (any two versions → driver-level walk with the **sums-to-delta** property test), and ad-hoc drivers. Goal-seek is the [P1] within this phase. Pure-engine, hand-calc-tested, per the Phase 3/4 standard.
+
+## Phase-3 backlog — RESOLVED
+
+- ~~**TakeOrPayPayload.annual_minimum_pct_of_committed** → Optional + `shortfall_basis` sibling field for formula-based shortfalls (real Intel-Micron clause).~~ Done in `5d97a7f`.
 
 ---
 
