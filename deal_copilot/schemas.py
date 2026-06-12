@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -620,6 +620,12 @@ class QuarterRow(BaseModel):
     gross_revenue: float = 0.0
     rebates: float = 0.0
     warrant_contra_revenue: float = 0.0
+    adhoc_adjustment: float = Field(
+        default=0.0,
+        description="Net effect of ad-hoc drivers this quarter (positive = increase). "
+                    "Folded into net_revenue / gross_margin / contribution_margin; "
+                    "kept as its own line for traceability. No COGS effect.",
+    )
     net_revenue: float = 0.0
     cogs: float = 0.0
     gross_margin: float = 0.0
@@ -781,6 +787,58 @@ class DealEconomics(BaseModel):
     )
     sensitivities: list[SensitivityRow] = Field(default_factory=list)
     effective_asp: EffectiveAsp | None = None
+
+
+# ---------------------------------------------------------------------------
+# Variance bridge (negotiation core)
+# ---------------------------------------------------------------------------
+
+
+# Which economics metric a variance bridge is computed on.
+VarianceMetric = Literal["net_revenue", "gross_margin", "npv"]
+
+
+class BridgeStep(BaseModel):
+    """One driver-level step in a variance bridge: the dollar impact on the
+    chosen metric of changing a single field from `old_value` to `new_value`,
+    measured by recomputing the model with that one change applied."""
+    model_config = ConfigDict(extra="forbid")
+
+    field_path: str = Field(
+        description="Dotted/indexed path of the changed input, e.g. "
+                    "'terms[PRICING].base_asp_usd', 'assumptions.unit_cogs_usd'.",
+    )
+    label: str = Field(description="Human-readable change label for the waterfall.")
+    old_value: Any | None = Field(default=None)
+    new_value: Any | None = Field(default=None)
+    metric_delta_usd: float = Field(
+        description="Contribution of this single change to the total metric delta."
+    )
+
+
+class VarianceBridge(BaseModel):
+    """Driver-level walk from one deal version to another on a chosen metric.
+
+    Built by sequential (waterfall) attribution: each step recomputes the metric
+    with one more change applied, so the step contributions telescope and sum
+    exactly to `total_delta_usd`. `residual_usd` (= total_delta - sum of steps)
+    is ~0 by construction and is asserted as the sums-to-delta property."""
+    model_config = ConfigDict(extra="forbid")
+
+    metric: VarianceMetric
+    scenario: ScenarioName
+    view: ViewMode
+    from_version_name: str
+    to_version_name: str
+    from_metric_usd: float
+    to_metric_usd: float
+    total_delta_usd: float
+    steps: list[BridgeStep] = Field(default_factory=list)
+    residual_usd: float = Field(
+        default=0.0,
+        description="total_delta_usd - sum(step.metric_delta_usd). ~0 by "
+                    "construction; non-zero signals an unattributed change.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1060,6 +1118,9 @@ __all__ = [
     "ScenarioResult",
     "SensitivityRow",
     "EffectiveAsp",
+    "VarianceMetric",
+    "BridgeStep",
+    "VarianceBridge",
     "WarrantTrancheValuation",
     "WarrantValueAtPrice",
     "WarrantProbabilityScenario",

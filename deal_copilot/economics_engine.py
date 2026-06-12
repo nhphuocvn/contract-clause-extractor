@@ -61,6 +61,7 @@ class DealInputs:
     prepayment_drawdown_pct: float
     dso_days: int
     contra_schedule: tuple[float, ...]
+    adhoc_schedule: tuple[float, ...]
     total_committed_units: float
 
 
@@ -109,6 +110,8 @@ def extract_inputs(
     else:
         contra = [0.0] * len(committed)
 
+    adhoc = _adhoc_schedule(pkg.ad_hoc_drivers, len(committed))
+
     return DealInputs(
         committed_quarterly=tuple(committed),
         qpy=qpy,
@@ -120,8 +123,30 @@ def extract_inputs(
         prepayment_drawdown_pct=float(drawdown_pct),
         dso_days=dso,
         contra_schedule=tuple(contra),
+        adhoc_schedule=tuple(adhoc),
         total_committed_units=float(sum(committed)),
     )
+
+
+def _adhoc_schedule(ad_hoc_drivers, n_quarters: int) -> list[float]:
+    """Per-quarter net ad-hoc adjustment from all AdHocDrivers on the package.
+
+    Each driver contributes its `quarterly_schedule_usd` if given, otherwise its
+    `amount_usd` spread evenly across the deal's quarters. Positive increases net
+    revenue/margin; negative decreases (the schema's sign convention)."""
+    sched = [0.0] * n_quarters
+    if n_quarters <= 0:
+        return sched
+    for d in ad_hoc_drivers or []:
+        if d.quarterly_schedule_usd:
+            for q, amt in enumerate(d.quarterly_schedule_usd):
+                if q < n_quarters:
+                    sched[q] += amt
+        else:
+            per_q = d.amount_usd / n_quarters
+            for q in range(n_quarters):
+                sched[q] += per_q
+    return sched
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +163,7 @@ def build_quarterly_pl(
     opex_allocation_pct: float,
     view: ViewMode,
     extra_revenue: list[float] | None = None,
+    adhoc_schedule: list[float] | None = None,
 ) -> list[QuarterRow]:
     """Build the quarterly P&L for one scenario and one view.
 
@@ -145,24 +171,34 @@ def build_quarterly_pl(
     payments) that add to gross revenue without adding COGS. Warrant
     contra-revenue is subtracted only in the GAAP view; the CASH_COMMERCIAL view
     zeroes it (it is a non-cash ASC 606 transaction-price reduction).
+
+    `adhoc_schedule` is the net ad-hoc adjustment per quarter (positive =
+    increase). It is added to net revenue, gross margin, and contribution as the
+    `adhoc_adjustment` line, kept visible for traceability; allocated opex is
+    computed on the operational net revenue (before ad-hoc) so an ad-hoc credit
+    does not inflate the opex base.
     """
     n = len(units)
     extra = extra_revenue or [0.0] * n
+    adhoc = adhoc_schedule or [0.0] * n
     rows: list[QuarterRow] = []
     for q in range(n):
         gross = units[q] * base_asp + extra[q]
         rebate = rebate_schedule[q] if q < len(rebate_schedule) else 0.0
         contra = (contra_schedule[q] if q < len(contra_schedule) else 0.0) if view == ViewMode.GAAP else 0.0
-        net_revenue = gross - rebate - contra
+        adj = adhoc[q] if q < len(adhoc) else 0.0
+        operational_net = gross - rebate - contra
+        opex = operational_net * opex_allocation_pct
+        net_revenue = operational_net + adj
         cogs = units[q] * unit_cogs_usd
         gross_margin = net_revenue - cogs
-        opex = net_revenue * opex_allocation_pct
         rows.append(QuarterRow(
             quarter_index=q,
             units=units[q],
             gross_revenue=gross,
             rebates=rebate,
             warrant_contra_revenue=contra,
+            adhoc_adjustment=adj,
             net_revenue=net_revenue,
             cogs=cogs,
             gross_margin=gross_margin,
@@ -370,6 +406,7 @@ def run_scenario(
     rows = build_quarterly_pl(
         units, inputs.base_asp, rebate_sched, list(inputs.contra_schedule),
         assumptions.unit_cogs_usd, assumptions.opex_allocation_pct, view, extra,
+        list(inputs.adhoc_schedule),
     )
     wacc = assumptions.discount_rate_wacc
     cf_financed = cash_flows(rows, inputs, include_prepayment=True)
