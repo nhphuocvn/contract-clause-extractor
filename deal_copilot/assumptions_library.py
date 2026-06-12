@@ -67,6 +67,12 @@ def _provenance(entry: dict[str, Any], as_of: datetime) -> AssumptionProvenance:
     except ValueError:
         basis = ProvenanceClass.LIBRARY_DEFAULT
     note = entry.get("note", "")
+    # `owner` / `assumption_type` are forward-compatible register tags (§5). Until
+    # Phase 6 promotes them to first-class AssumptionProvenance fields, fold the
+    # owner into the note so the accountability is not lost.
+    owner = entry.get("owner")
+    if owner:
+        note = f"{note} [owner: {owner}]" if note else f"[owner: {owner}]"
     lib_as_of = entry.get("as_of")
     if lib_as_of:
         note = f"{note} (library as_of {lib_as_of})" if note else f"library as_of {lib_as_of}"
@@ -98,6 +104,8 @@ def build_default_assumptions(
         opex_allocation_pct=_entry_value(g["opex_allocation_pct"]),
         discount_rate_wacc=_entry_value(g["wacc"]),
         tax_rate=_entry_value(g["tax_rate"]),
+        supplier_payment_dpo_days=_entry_value(g["supplier_payment_dpo_days"]),
+        inventory_lead_months=_entry_value(g["inventory_lead_months"]),
         current_stock_price_usd=_entry_value(g["current_stock_price_usd"]),
         assumed_volatility=_entry_value(g["assumed_volatility"]),
         shares_outstanding=_entry_value(g["shares_outstanding"]),
@@ -109,6 +117,8 @@ def build_default_assumptions(
         "opex_allocation_pct": _provenance(g["opex_allocation_pct"], as_of),
         "discount_rate_wacc": _provenance(g["wacc"], as_of),
         "tax_rate": _provenance(g["tax_rate"], as_of),
+        "supplier_payment_dpo_days": _provenance(g["supplier_payment_dpo_days"], as_of),
+        "inventory_lead_months": _provenance(g["inventory_lead_months"], as_of),
         "current_stock_price_usd": _provenance(g["current_stock_price_usd"], as_of),
         "assumed_volatility": _provenance(g["assumed_volatility"], as_of),
         "shares_outstanding": _provenance(g["shares_outstanding"], as_of),

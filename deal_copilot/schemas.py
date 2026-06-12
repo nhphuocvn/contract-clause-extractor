@@ -485,6 +485,23 @@ class DealAssumptions(BaseModel):
     opex_allocation_pct: UnitInterval = Field(default=0.12)
     discount_rate_wacc: UnitInterval = Field(default=0.10)
     tax_rate: UnitInterval = Field(default=0.21)
+    supplier_payment_dpo_days: int = Field(
+        default=60,
+        ge=0,
+        description="Days payable outstanding — supplier payment terms. Pushes COGS "
+                    "and opex cash OUT this many days after the cost is incurred "
+                    "(improves working capital). Policy number; owner Treasury / "
+                    "Procurement. Nets against inventory_lead_months for COGS.",
+    )
+    inventory_lead_months: int = Field(
+        default=3,
+        ge=0,
+        description="Months that COGS (inventory) cash is funded AHEAD of the "
+                    "shipment it supports — the ramp's inventory build (worsens "
+                    "working capital). One-number simplification, not a supply-chain "
+                    "model; owner Operations / Supply Chain. Nets against the DPO lag "
+                    "into a single COGS cash lag (DPO months − inventory lead months).",
+    )
     current_stock_price_usd: float = Field(default=150.0, ge=0.0)
     assumed_volatility: UnitInterval = Field(
         default=0.45,
@@ -655,6 +672,15 @@ class ScenarioResult(BaseModel):
     total_net_revenue: float
     total_gross_margin: float
     total_gross_margin_pct: float
+    peak_working_capital_draw_usd: float = Field(
+        default=0.0,
+        description="Most negative undiscounted cumulative cash balance on the "
+                    "deployment view (EXCLUDING the customer prepayment) — the peak "
+                    "operating working capital the deal ties up before it turns "
+                    "cash-positive. Reflects all three working-capital legs: "
+                    "collection lag (DSO), supplier payment lag (DPO), and the "
+                    "inventory build (lead time). Negative = a draw.",
+    )
 
 
 class SensitivityRow(BaseModel):

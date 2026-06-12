@@ -127,11 +127,12 @@ def prepayment_schedule(
 # ---------------------------------------------------------------------------
 
 
-def _dso_lag_quarters(dso_days: int) -> int:
-    """Collection lag in whole quarters (≈91.25 days/quarter), at least 1 when
-    any credit is extended."""
-    lag = int(round(dso_days / 91.25))
-    return max(lag, 1) if dso_days > 0 else 0
+_DAYS_PER_MONTH = 365.25 / 12.0     # 30.4375 — calendar-average month length
+
+
+def _dso_lag_months(dso_days: int) -> int:
+    """Collection lag in whole months (net-30/60/90 → 1/2/3)."""
+    return int(round(dso_days / _DAYS_PER_MONTH))
 
 
 def peak_receivables(
@@ -140,22 +141,29 @@ def peak_receivables(
     """Maximum accounts-receivable balance implied by the billing ramp and DSO,
     and the quarter index at which it occurs.
 
-    AR at the end of quarter q is the sum of billings still within the DSO
-    collection window (the trailing `lag` quarters, including q). Returns
-    `(peak_usd, quarter_index)`; `(0.0, -1)` if there are no billings.
+    Billing is modeled on a MONTHLY grid (each quarter's billings spread evenly
+    across its 3 months — the same cash-timing simplification the engine uses),
+    so net-30 / net-60 / net-90 produce genuinely different receivables (a
+    trailing window of 1 / 2 / 3 months of billing). AR at the end of month m is
+    the sum of billings still within the DSO collection window (the trailing
+    `lag` months, including m). Returns `(peak_usd, quarter_index)` where the
+    quarter is `peak_month // 3`; `(0.0, -1)` if there are no billings.
+
+    Assumes perfect collections (no bad debt or disputes).
     """
     if not quarterly_billings:
         return 0.0, -1
-    lag = _dso_lag_quarters(dso_days)
+    lag = _dso_lag_months(dso_days)
     if lag == 0:
         return 0.0, -1
+    monthly = [b / 3.0 for b in quarterly_billings for _ in range(3)]
     peak = 0.0
-    peak_q = -1
-    for q in range(len(quarterly_billings)):
-        ar = sum(quarterly_billings[max(0, q - lag + 1): q + 1])
+    peak_m = -1
+    for m in range(len(monthly)):
+        ar = sum(monthly[max(0, m - lag + 1): m + 1])
         if ar > peak:
-            peak, peak_q = ar, q
-    return peak, peak_q
+            peak, peak_m = ar, m
+    return peak, (peak_m // 3 if peak_m >= 0 else -1)
 
 
 __all__ = [

@@ -30,6 +30,22 @@
       "note": "Allocated operating expense as a fraction of net revenue; deal-desk default.",
       "as_of": "2026-06-11"
     },
+    "supplier_payment_dpo_days": {
+      "value": 60,
+      "basis_class": "LIBRARY_DEFAULT",
+      "assumption_type": "policy_number",
+      "owner": "Treasury / Procurement",
+      "note": "Days payable outstanding — standard supplier net-60 terms. Sets the DPO lag (cash OUT) on COGS and opex. Confirm with Procurement.",
+      "as_of": "2026-06-11"
+    },
+    "inventory_lead_months": {
+      "value": 3,
+      "basis_class": "LIBRARY_DEFAULT",
+      "assumption_type": "strategic_judgment",
+      "owner": "Operations / Supply Chain",
+      "note": "Months that GPU/HBM inventory cash is funded ahead of shipment (leading-edge component lead time). One-number simplification, not a supply-chain model; nets against DPO into the COGS cash lag. Confirm with Operations.",
+      "as_of": "2026-06-11"
+    },
     "unit_cogs_usd": {
       "value": 15000.0,
       "basis_class": "LIBRARY_DEFAULT",

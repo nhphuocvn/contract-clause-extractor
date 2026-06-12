@@ -60,6 +60,8 @@ class DealInputs:
     prepayment_usd: float
     prepayment_drawdown_pct: float
     dso_days: int
+    dpo_days: int
+    inventory_lead_months: int
     contra_schedule: tuple[float, ...]
     adhoc_schedule: tuple[float, ...]
     total_committed_units: float
@@ -122,6 +124,8 @@ def extract_inputs(
         prepayment_usd=float(prepay),
         prepayment_drawdown_pct=float(drawdown_pct),
         dso_days=dso,
+        dpo_days=int(assumptions.supplier_payment_dpo_days),
+        inventory_lead_months=int(assumptions.inventory_lead_months),
         contra_schedule=tuple(contra),
         adhoc_schedule=tuple(adhoc),
         total_committed_units=float(sum(committed)),
@@ -210,12 +214,38 @@ def build_quarterly_pl(
 
 # ---------------------------------------------------------------------------
 # Cash flow & NPV
+#
+# Revenue recognition stays quarterly (the P&L above). Cash is modeled on a
+# MONTHLY grid so the three working-capital legs are distinguishable:
+#   - DSO  (collections):     cash IN  lagged `dso` months after billing.
+#   - DPO  (supplier terms):  cash OUT lagged `dpo` months (COGS and opex).
+#   - inventory lead:         COGS cash OUT pulled `inventory_lead_months`
+#                             months EARLIER (the ramp's inventory build).
+# DPO and inventory lead net into one explicit COGS cash lag:
+#     cogs_cash_lag = dpo_months − inventory_lead_months
+# (a negative lag means COGS cash leaves before the shipment it supports).
+#
+# Within-quarter activity is spread EVENLY across the quarter's 3 months — the
+# cash-timing simplification: it reflects continuous shipment/invoicing and keeps
+# the arithmetic hand-traceable. (Quarter-end concentration would be a more
+# conservative stress toggle; not modeled.)
+#
+# NPV here is PRE-TAX operating cash (no tax shield applied to the flows);
+# after-tax NPV is a roadmap item. Collections are assumed perfect — no bad
+# debt, disputes, or receivables dilution are modeled.
 # ---------------------------------------------------------------------------
+
+DAYS_PER_MONTH = 365.25 / 12.0     # 30.4375 — calendar-average month length
 
 
 def quarterly_discount_rate(wacc_annual: float) -> float:
     """Convert an annual WACC to the equivalent quarterly discount rate."""
     return (1.0 + wacc_annual) ** 0.25 - 1.0
+
+
+def monthly_discount_rate(wacc_annual: float) -> float:
+    """Convert an annual WACC to the equivalent monthly discount rate."""
+    return (1.0 + wacc_annual) ** (1.0 / 12.0) - 1.0
 
 
 def npv(cash_flows: list[float], wacc_annual: float) -> float:
@@ -236,55 +266,104 @@ def payback_quarter(cash_flows: list[float], wacc_annual: float) -> int | None:
     return None
 
 
-def _dso_lag_quarters(dso_days: int) -> int:
-    """Approximate collection lag in whole quarters (≈91.25 days/quarter)."""
-    return int(round(dso_days / 91.25))
+def npv_monthly(cash_flows: list[float], wacc_annual: float) -> float:
+    """NPV of a monthly cash-flow series, index 0 discounted by 0 periods."""
+    r = monthly_discount_rate(wacc_annual)
+    return sum(cf / (1.0 + r) ** t for t, cf in enumerate(cash_flows))
 
 
-def cash_flows(
+def payback_month(cash_flows: list[float], wacc_annual: float) -> int | None:
+    """First month index at which cumulative *discounted* cash flow turns
+    non-negative, or None if it never does."""
+    r = monthly_discount_rate(wacc_annual)
+    cum = 0.0
+    for t, cf in enumerate(cash_flows):
+        cum += cf / (1.0 + r) ** t
+        if cum >= 0.0:
+            return t
+    return None
+
+
+def _lag_months(days: int) -> int:
+    """Whole-month lag for a payment term in days (net-30/60/90 → 1/2/3)."""
+    return int(round(days / DAYS_PER_MONTH))
+
+
+def monthly_cash_flows(
     rows: list[QuarterRow],
     inputs: DealInputs,
     include_prepayment: bool = True,
-) -> list[float]:
-    """Net operating cash-view series for a scenario's P&L rows.
+) -> tuple[list[float], int]:
+    """Monthly net cash series for a scenario's P&L rows, plus `lead_pad` — the
+    number of leading months prepended so a pre-shipment inventory build (a
+    negative COGS cash lag) lands at a non-negative index.
 
-    Inflows: each quarter's invoice (gross revenue, net of rebate credits) is
-    collected `_dso_lag_quarters` later (net-90 ≈ +1 quarter).
-    Outflows: COGS and allocated opex, paid in the quarter of delivery.
+    Each quarter's gross revenue, rebate, COGS, and opex are split evenly across
+    its 3 months. Per month:
+      - collection (invoice − drawdown − rebate) lands `dso` months later;
+      - COGS cash lands `cogs_cash_lag = dpo − inventory_lead_months` months
+        later (may be negative → before the shipment);
+      - opex cash lands `dpo` months later.
 
-    The customer prepayment is a *financing overlay*:
-      - ``include_prepayment=True`` (default, the financed view): Q0 receives the
-        $500M prepayment inflow, and each invoice's collection is reduced by the
-        20%-of-invoice drawdown (the customer pays less because the prepayment is
-        being applied). This is actual cash to the seller — used for NPV and the
-        headline "with customer prepayment financing" payback (front-loaded to Q0).
-      - ``include_prepayment=False`` (the deployment view): no Q0 inflow and no
-        drawdown, so each invoice is collected in full. This isolates the deal's
-        own deployment economics for the operationally meaningful payback.
+    The customer prepayment is a financing overlay:
+      - ``include_prepayment=True`` (financed view): the $500M prepayment is an
+        inflow at month 0, and each invoice's collection is reduced by the
+        20%-of-invoice drawdown until the prepayment is exhausted. Used for the
+        headline NPV and the "with customer financing" payback (front-loaded).
+      - ``include_prepayment=False`` (deployment view): no prepayment inflow and
+        no drawdown — collections in full. Isolates the deal's own operating
+        cash for the meaningful payback and the peak working-capital draw.
 
-    Over the full horizon the two views net to the same total (total drawdown ==
-    prepayment); they differ only in timing.
-
-    Simplifications (documented): rebate settlement and shortfall-payment timing
-    are folded into the quarter they accrue rather than separately lagged.
+    The grid origin (index 0) is the EARLIEST cash event, so discounting starts
+    when cash first moves. `lead_pad` lets callers map an index back to a
+    calendar month: `calendar_month = index − lead_pad`.
     """
-    n = len(rows)
-    lag = _dso_lag_quarters(inputs.dso_days)
-    cf = [0.0] * (n + lag + 1)
+    dso = _lag_months(inputs.dso_days)
+    dpo = _lag_months(inputs.dpo_days)
+    cogs_cash_lag = dpo - inputs.inventory_lead_months   # net leg; may be < 0
+    opex_lag = dpo
+    lead_pad = max(0, -cogs_cash_lag, -opex_lag)
+    months = len(rows) * 3
+    size = months + max(dso, opex_lag, cogs_cash_lag, 0) + lead_pad + 1
+    cf = [0.0] * size
+
+    def put(month: int, amount: float) -> None:
+        cf[month + lead_pad] += amount
+
     remaining = inputs.prepayment_usd if include_prepayment else 0.0
     if include_prepayment:
-        cf[0] += inputs.prepayment_usd
+        put(0, inputs.prepayment_usd)
     for q, row in enumerate(rows):
-        invoice = row.gross_revenue
-        if include_prepayment:
-            drawdown = min(inputs.prepayment_drawdown_pct * invoice, remaining)
-            remaining -= drawdown
-        else:
-            drawdown = 0.0
-        collection = invoice - drawdown - row.rebates
-        cf[q + lag] += collection
-        cf[q] -= row.cogs + row.allocated_opex
-    return cf
+        invoice_m = row.gross_revenue / 3.0
+        rebate_m = row.rebates / 3.0
+        cogs_m = row.cogs / 3.0
+        opex_m = row.allocated_opex / 3.0
+        for k in range(3):
+            m = q * 3 + k
+            if include_prepayment:
+                drawdown = min(inputs.prepayment_drawdown_pct * invoice_m, remaining)
+                remaining -= drawdown
+            else:
+                drawdown = 0.0
+            put(m + dso, invoice_m - drawdown - rebate_m)   # collection (DSO)
+            put(m + cogs_cash_lag, -cogs_m)                 # COGS cash (DPO − lead)
+            put(m + opex_lag, -opex_m)                      # opex cash (DPO)
+    return cf, lead_pad
+
+
+def peak_working_capital_draw(rows: list[QuarterRow], inputs: DealInputs) -> float:
+    """Most negative undiscounted cumulative cash balance on the deployment view
+    (excluding the prepayment) — the peak operating working capital tied up
+    before the deal turns cash-positive. Negative = a draw. Reflects all three
+    legs (DSO collection lag, DPO supplier lag, inventory build)."""
+    cf, _ = monthly_cash_flows(rows, inputs, include_prepayment=False)
+    cum = 0.0
+    trough = 0.0
+    for c in cf:
+        cum += c
+        if cum < trough:
+            trough = cum
+    return trough
 
 
 # ---------------------------------------------------------------------------
@@ -409,20 +488,28 @@ def run_scenario(
         list(inputs.adhoc_schedule),
     )
     wacc = assumptions.discount_rate_wacc
-    cf_financed = cash_flows(rows, inputs, include_prepayment=True)
-    cf_deployment = cash_flows(rows, inputs, include_prepayment=False)
+    cf_financed, pad_fin = monthly_cash_flows(rows, inputs, include_prepayment=True)
+    cf_deployment, pad_dep = monthly_cash_flows(rows, inputs, include_prepayment=False)
+
+    def to_quarter(month: int | None, pad: int) -> int | None:
+        """Map a monthly payback index back to the calendar quarter it falls in."""
+        if month is None:
+            return None
+        return max(0, month - pad) // 3
+
     total_net = sum(r.net_revenue for r in rows)
     total_gm = sum(r.gross_margin for r in rows)
     return ScenarioResult(
         scenario=scenario,
         view=view,
         quarterly_pl=rows,
-        npv_usd=npv(cf_financed, wacc),
-        payback_quarters=payback_quarter(cf_financed, wacc),
-        payback_quarters_ex_prepayment=payback_quarter(cf_deployment, wacc),
+        npv_usd=npv_monthly(cf_financed, wacc),
+        payback_quarters=to_quarter(payback_month(cf_financed, wacc), pad_fin),
+        payback_quarters_ex_prepayment=to_quarter(payback_month(cf_deployment, wacc), pad_dep),
         total_net_revenue=total_net,
         total_gross_margin=total_gm,
         total_gross_margin_pct=(total_gm / total_net) if total_net else 0.0,
+        peak_working_capital_draw_usd=peak_working_capital_draw(rows, inputs),
     )
 
 
@@ -613,9 +700,13 @@ __all__ = [
     "extract_inputs",
     "build_quarterly_pl",
     "quarterly_discount_rate",
+    "monthly_discount_rate",
     "npv",
     "payback_quarter",
-    "cash_flows",
+    "npv_monthly",
+    "payback_month",
+    "monthly_cash_flows",
+    "peak_working_capital_draw",
     "TakeOrPayYear",
     "compute_take_or_pay",
     "run_scenario",
