@@ -41,6 +41,22 @@
 
 **All financial math is hand-calc pinned: `180 tests passing` (139 prior + 41 Phase 7).**
 
+## Phase 7 REVIEW — IN PROGRESS
+
+The Excel export (`1e4154a`) requires a full tab-by-tab review against the actual contract before any fixes are applied. **Do NOT fix piecemeal — all issues get addressed together in one comprehensive pass.**
+
+**Known issues found:**
+
+1. **Scenarios tab broken numbers (suspected ENGINE bug).** DOWNSIDE gross margin −$2.15B, GM% 463%; UPSIDE GM% −246%. The $3.38B warrant contra is applied to non-BASE scenarios, collapsing GAAP net revenue to near-zero or negative. This needs an engine investigation first — NOT just a display fix.
+2. **No contract clause text anywhere.** `CommercialTerm.raw_text` is never written. Drivers tab shows internal IDs (`volume_quarterly_units`) instead of document filenames; Source Section column blank throughout.
+3. **Assumptions tab Provenance column (col D) empty on every row.** Header says "Provenance"; no values written.
+4. **CRB_Summary skeletal.** Missing: policy verdict, approvers, top risks, benchmark sentences, approval conditions, recommendation, effective-ASP waterfall, GAAP-vs-cash bridge.
+5. **Warrant_Assump EV-range rows are static seeds.** Should be live formulas: editing a vest probability or stock price must update Conservative / Base / Aggressive.
+6. **Variance tab and Changelog empty.** Variance shows placeholder text; Changelog shows "No changelog entries." — both expected but need review of what should seed them.
+7. **Internal variable names and truncated notes throughout.** Not enterprise-quality; e.g., accounting notes truncated at 80 chars, driver IDs exposed as row labels.
+
+**Plan:** review every tab against the contract with the user, investigate the Scenarios/engine warrant bug, then ONE complete fix script (engine bug first, then all Excel fixes together). 180 tests currently passing.
+
 ## Next: Phase 8 — UI; then Phase 9 — README/demo
 
 ## Phase-3 backlog — RESOLVED
