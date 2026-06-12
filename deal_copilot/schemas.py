@@ -490,10 +490,26 @@ class DealAssumptions(BaseModel):
         default=0.45,
         description="Annualized stock volatility for optional Black-Scholes mode.",
     )
+    shares_outstanding: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Seller's shares outstanding, used to compute warrant dilution "
+                    "(% of shares outstanding). None = dilution not computed.",
+    )
+    warrant_measurement_price_usd: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="JUDGMENT input: assumed stock price at which the warrant is "
+                    "measured. Strategic estimate, NOT a contract fact — record with "
+                    "PLACEHOLDER provenance ('confirm with deal team'). None falls "
+                    "back to current_stock_price_usd.",
+    )
     tranche_vest_probabilities: list[UnitInterval] = Field(
         default_factory=list,
-        description="Per-tranche probability of vesting, same order as WarrantTerms.tranches. "
-                    "Length must equal the number of tranches when warrant_terms is present.",
+        description="JUDGMENT input: per-tranche probability of vesting, same order "
+                    "as WarrantTerms.tranches. Strategic estimate, NOT a contract "
+                    "fact — record with PLACEHOLDER provenance. Length must equal the "
+                    "number of tranches when warrant_terms is present.",
     )
     capacity_bridge: CapacityBridgeInputs | None = Field(
         default=None,
@@ -653,6 +669,103 @@ class EffectiveAsp(BaseModel):
     rebate_per_unit_usd: float
     warrant_per_unit_usd: float
     all_in_usd: float
+
+
+# ---------------------------------------------------------------------------
+# Warrant economics output
+# ---------------------------------------------------------------------------
+
+
+class WarrantTrancheValuation(BaseModel):
+    """Per-tranche warrant valuation. Contract facts (shares, strike, hurdle,
+    milestone) and the JUDGMENT vest probability are kept as distinct fields so
+    Excel can show each on its own row and trace it to its source."""
+    model_config = ConfigDict(extra="forbid")
+
+    tranche_index: int = Field(ge=0)
+    share_count: int = Field(ge=0)
+    exercise_price_usd: float = Field(ge=0.0)
+    stock_price_hurdle_usd: float | None = None
+    deployment_milestone_units: int = Field(ge=0)
+    vest_probability: UnitInterval = Field(
+        description="JUDGMENT input for this tranche (strategic estimate)."
+    )
+    fair_value_per_share_usd: float = Field(
+        description="Measurement price minus exercise price (intrinsic mode)."
+    )
+    gross_fair_value_usd: float = Field(
+        description="share_count * fair_value_per_share_usd (before vest probability)."
+    )
+    expected_fair_value_usd: float = Field(
+        description="gross_fair_value_usd * vest_probability."
+    )
+
+
+class WarrantValueAtPrice(BaseModel):
+    """Total intrinsic value transferred at one assumed stock price — the
+    asymmetry callout (warrant cost rises with the seller's own stock success)."""
+    model_config = ConfigDict(extra="forbid")
+
+    stock_price_usd: float = Field(ge=0.0)
+    total_intrinsic_value_usd: float
+
+
+class WarrantProbabilityScenario(BaseModel):
+    """One point in the expected-value range: a named vest-probability set and
+    the total expected warrant value it produces. Reported as conservative /
+    base / aggressive so the warrant cost is shown as a range, not a point."""
+    model_config = ConfigDict(extra="forbid")
+
+    label: str
+    probabilities: list[UnitInterval]
+    total_expected_fair_value_usd: float
+
+
+class WarrantEconomics(BaseModel):
+    """Top-level warrant economics output: the value of the equity given to the
+    customer (consideration payable to a customer → contra-revenue under ASC 606,
+    measured under ASC 718). Every intermediate is its own field for Excel
+    traceability."""
+    model_config = ConfigDict(extra="forbid")
+
+    valuation_mode: str = Field(
+        default="intrinsic",
+        description="'intrinsic' (default headline) or 'black_scholes' (illustrative).",
+    )
+    measurement_price_usd: float = Field(
+        description="JUDGMENT measurement stock price used for valuation."
+    )
+    tranche_valuations: list[WarrantTrancheValuation] = Field(default_factory=list)
+    total_expected_fair_value_usd: float = Field(
+        description="Sum of per-tranche expected fair values (Base probability set)."
+    )
+    expected_value_range: list[WarrantProbabilityScenario] = Field(
+        default_factory=list,
+        description="Conservative / base / aggressive vest-probability sets and "
+                    "the total expected warrant value each yields.",
+    )
+    contra_revenue_schedule_usd: list[float] = Field(
+        default_factory=list,
+        description="Per-quarter contra-revenue, expected fair value allocated over "
+                    "each tranche's deployment band. Fills the engine's CONTRA_REVENUE slot.",
+    )
+    effective_asp: EffectiveAsp
+    cash_net_revenue_usd: float = Field(
+        description="Net revenue excluding warrant contra (commercial/cash view)."
+    )
+    gaap_net_revenue_usd: float = Field(
+        description="Net revenue including warrant contra (GAAP view)."
+    )
+    warrant_contra_bridge_usd: float = Field(
+        description="cash_net_revenue_usd - gaap_net_revenue_usd (the warrant contra)."
+    )
+    dilution_pct_of_shares_outstanding: float | None = Field(
+        default=None,
+        description="total warrant shares / shares_outstanding. None if shares "
+                    "outstanding not provided.",
+    )
+    value_at_price_levels: list[WarrantValueAtPrice] = Field(default_factory=list)
+    asymmetry_note: str = Field(default="")
 
 
 class DealEconomics(BaseModel):
@@ -947,6 +1060,10 @@ __all__ = [
     "ScenarioResult",
     "SensitivityRow",
     "EffectiveAsp",
+    "WarrantTrancheValuation",
+    "WarrantValueAtPrice",
+    "WarrantProbabilityScenario",
+    "WarrantEconomics",
     "DealEconomics",
     # Change journal (audit)
     "ChangeJournalEntry",

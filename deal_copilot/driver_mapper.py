@@ -373,21 +373,29 @@ def _liability_driver(term: CommercialTerm) -> ModelDriver:
     )
 
 
-def _warrant_contra_driver(term: CommercialTerm, n_quarters: int) -> ModelDriver:
-    """Wire the contra-revenue slot with a zero schedule. Phase 4 (warrant
-    economics) fills this with the real per-quarter contra-revenue allocation;
-    until then the GAAP view simply carries a zero warrant line.
+def _warrant_contra_driver(
+    term: CommercialTerm, n_quarters: int, contra_schedule: list[float] | None = None
+) -> ModelDriver:
+    """Contra-revenue driver for the warrant. `contra_schedule`, when supplied by
+    warrant_economics (via compute_economics), is the per-quarter contra-revenue
+    allocation; otherwise the slot carries zeros (deterministic-only / no-warrant).
     """
+    schedule = list(contra_schedule) if contra_schedule else [0.0] * n_quarters
+    populated = bool(contra_schedule) and any(schedule)
+    detail = (
+        f"Per-quarter contra-revenue total ${sum(schedule):,.0f}."
+        if populated else
+        "Zero until warrant economics supplies the schedule."
+    )
     return ModelDriver(
         driver_id="warrant_contra_revenue",
         driver_type=DriverType.CONTRA_REVENUE,
-        schedule=[0.0] * n_quarters,
+        schedule=schedule,
         source_term_id=term.term_id,
         accounting_treatment_note=(
             "Warrant issued to the customer = consideration payable to a "
-            "customer → reduction of transaction price / contra-revenue under "
-            "ASC 606 (measured under ASC 718). Zero placeholder until Phase 4 "
-            "warrant economics computes the per-tranche contra-revenue schedule."
+            "customer -> reduction of transaction price / contra-revenue under "
+            "ASC 606 (measured under ASC 718). " + detail
         ),
     )
 
@@ -398,7 +406,10 @@ def _warrant_contra_driver(term: CommercialTerm, n_quarters: int) -> ModelDriver
 
 
 def map_terms_to_drivers(
-    pkg: DealPackage, assumptions: DealAssumptions, dso: int = 90
+    pkg: DealPackage,
+    assumptions: DealAssumptions,
+    dso: int = 90,
+    warrant_contra_schedule: list[float] | None = None,
 ) -> list[ModelDriver]:
     """Build the full driver list for a deal package. Pure: does not mutate
     `pkg` or `assumptions`.
@@ -406,6 +417,10 @@ def map_terms_to_drivers(
     `dso` is the resolved days-sales-outstanding for the cash view (caller looks
     it up via `assumptions_library.dso_for_payment_terms`); a PAYMENT_TERMS term
     with an explicit `net_days` overrides it.
+
+    `warrant_contra_schedule`, when supplied (by `compute_economics` from
+    `warrant_economics`), populates the CONTRA_REVENUE driver's schedule; absent
+    it, that driver carries zeros.
     """
     # Cross-model invariant: warrant present => vest-probability list matches.
     validate_assumptions_against_warrant(assumptions, pkg.warrant_terms)
@@ -433,7 +448,7 @@ def map_terms_to_drivers(
     if (lia := _first(pkg, TermType.LIABILITY)) is not None:
         drivers.append(_liability_driver(lia))
     if (we := _first(pkg, TermType.WARRANT_EQUITY)) is not None:
-        drivers.append(_warrant_contra_driver(we, n_quarters))
+        drivers.append(_warrant_contra_driver(we, n_quarters, warrant_contra_schedule))
 
     return drivers
 

@@ -100,6 +100,7 @@ def build_default_assumptions(
         tax_rate=_entry_value(g["tax_rate"]),
         current_stock_price_usd=_entry_value(g["current_stock_price_usd"]),
         assumed_volatility=_entry_value(g["assumed_volatility"]),
+        shares_outstanding=_entry_value(g["shares_outstanding"]),
     )
 
     # Parallel provenance map, keyed by DealAssumptions attribute name.
@@ -110,6 +111,7 @@ def build_default_assumptions(
         "tax_rate": _provenance(g["tax_rate"], as_of),
         "current_stock_price_usd": _provenance(g["current_stock_price_usd"], as_of),
         "assumed_volatility": _provenance(g["assumed_volatility"], as_of),
+        "shares_outstanding": _provenance(g["shares_outstanding"], as_of),
     }
 
     return assumptions, provenance

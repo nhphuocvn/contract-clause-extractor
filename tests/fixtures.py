@@ -16,6 +16,8 @@ from deal_copilot.schemas import (
     DealPackage,
     DocumentRef,
     TermType,
+    WarrantTerms,
+    WarrantTranche,
 )
 
 QUARTERLY_SCHEDULE = [7000, 9000, 12000, 15000, 18000, 20000, 18000, 16000, 13000, 11000, 7000, 4000]
@@ -92,3 +94,39 @@ def default_assumptions() -> DealAssumptions:
     """DealAssumptions populated from the library (unit_cogs $15k, WACC 10%)."""
     assumptions, _ = build_default_assumptions(load_library(), AS_OF)
     return assumptions
+
+
+def synthetic_warrant_terms() -> WarrantTerms:
+    """The ground-truth warrant: 12,000,000 shares @ $0.01, four 3,000,000-share
+    tranches at deployment milestones 30k/75k/120k/150k with VWAP hurdles."""
+    return WarrantTerms(
+        total_shares=12_000_000,
+        exercise_price_usd=0.01,
+        expiration_years=6,
+        tranches=[
+            WarrantTranche(share_count=3_000_000, deployment_milestone_units=30_000, stock_price_hurdle_usd=180.0),
+            WarrantTranche(share_count=3_000_000, deployment_milestone_units=75_000, stock_price_hurdle_usd=230.0),
+            WarrantTranche(share_count=3_000_000, deployment_milestone_units=120_000, stock_price_hurdle_usd=300.0),
+            WarrantTranche(share_count=3_000_000, deployment_milestone_units=150_000, stock_price_hurdle_usd=400.0),
+        ],
+    )
+
+
+def synthetic_package_with_warrant() -> DealPackage:
+    """The synthetic package plus the warrant terms attached, with the four
+    base-case vest probabilities set (so validate_assumptions_against_warrant
+    passes). Kept separate from `synthetic_package()` so Phase 3's warrant-free
+    hand-calcs stay stable."""
+    pkg = synthetic_package()
+    pkg.warrant_terms = synthetic_warrant_terms()
+    return pkg
+
+
+def warrant_assumptions() -> DealAssumptions:
+    """Default assumptions with AMD spot $470 and the base vest-probability set
+    [0.9, 0.7, 0.5, 0.3] (length matches the 4 tranches)."""
+    a = default_assumptions()
+    return a.model_copy(update={
+        "current_stock_price_usd": 470.0,
+        "tranche_vest_probabilities": [0.9, 0.7, 0.5, 0.3],
+    })

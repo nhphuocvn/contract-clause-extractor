@@ -59,6 +59,18 @@
       "basis_class": "LIBRARY_DEFAULT",
       "note": "Annualized equity volatility for the optional Black-Scholes warrant mode (illustrative).",
       "as_of": "2026-06-11"
+    },
+    "shares_outstanding": {
+      "value": 1618000000.0,
+      "basis_class": "LIBRARY_DEFAULT",
+      "note": "Seller shares outstanding (~1.618B), for warrant dilution %. Refresh from latest 10-Q before relying on dilution.",
+      "as_of": "2026-06-11"
+    },
+    "risk_free_rate": {
+      "value": 0.04,
+      "basis_class": "LIBRARY_DEFAULT",
+      "note": "Risk-free rate for the illustrative Black-Scholes warrant mode only.",
+      "as_of": "2026-06-11"
     }
   },
 

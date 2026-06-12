@@ -130,7 +130,8 @@ openpyxl workbook:
 - **Assumptions tab:** every input, provenance class color-coded, mandatory Source/Basis column. Named ranges for key inputs; formula cells locked (sheet protection with inputs unlocked).
 - **Drivers tab:** terms → drivers with source clause text and document/section.
 - **Model tab:** quarterly P&L, **live formulas only** referencing Assumptions via named ranges — edit ASP in Excel, model recalculates. Zero hardcoded computed cells. Footnote column or cell comments tying each line to its driver and clause.
-- **Scenarios tab** (with probability weights and expected value), **Variance tab** (when ≥2 versions), **Warrant tab** (tranches, fair value, contra-revenue flowing into Model via formulas), **Accounting Schedules tab** (§9.4), **CRB Summary tab** (print-ready), **Changelog tab** (change journal).
+- **Warrant Assumptions tab:** a dedicated tab grouping the editable *judgment* inputs — per-tranche vest probabilities and the measurement stock price — **separate from the contract-fact warrant terms** (shares, strike, milestones, hurdles), each flagged "strategic estimate — confirm with deal team". Live formula links so editing a probability or the price recomputes the Warrant and Model tabs. This is where the warrant value's conservative/base/aggressive range is driven.
+- **Scenarios tab** (with probability weights and expected value), **Variance tab** (when ≥2 versions), **Warrant tab** (tranches, fair value, contra-revenue flowing into Model via formulas; reads the Warrant Assumptions tab), **Accounting Schedules tab** (§9.4), **CRB Summary tab** (print-ready), **Changelog tab** (change journal).
 - **Golden-file test:** generate, reopen, assert formulas (not cached values) in sampled computed cells; recompute one full chain by hand in the test.
 
 ### 9.2 CRB memo [P0]

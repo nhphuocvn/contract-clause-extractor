@@ -70,8 +70,17 @@ def _param(term, key, default=None):
     return term.parameters.get(key, default)
 
 
-def extract_inputs(pkg: DealPackage, dso_days: int = 90) -> DealInputs:
-    """Pull the scalar/series inputs the engine needs out of a package."""
+def extract_inputs(
+    pkg: DealPackage, dso_days: int = 90, assumptions: DealAssumptions | None = None
+) -> DealInputs:
+    """Pull the scalar/series inputs the engine needs out of a package.
+
+    `assumptions` is only consulted when the package carries warrant terms (to
+    value the contra-revenue schedule); a warrant-bearing package should pass the
+    real assumptions. Defaults to a fresh `DealAssumptions` otherwise.
+    """
+    if assumptions is None:
+        assumptions = DealAssumptions()
     committed = dm.quarterly_schedule(pkg)
     qpy = dm.quarters_per_year(pkg)
     asp = dm._resolve_base_asp(pkg)
@@ -91,6 +100,15 @@ def extract_inputs(pkg: DealPackage, dso_days: int = 90) -> DealInputs:
     net_days = _param(pt, "net_days")
     dso = int(net_days) if isinstance(net_days, (int, float)) else dso_days
 
+    # Warrant contra-revenue fills the slot Phase 3 wired with zeros. Imported
+    # locally to keep the module-load arrow one-way (warrant_economics imports
+    # driver_mapper, never economics_engine).
+    if pkg.warrant_terms is not None:
+        from deal_copilot import warrant_economics as we
+        contra = we.contra_revenue_schedule(pkg.warrant_terms, assumptions, committed)
+    else:
+        contra = [0.0] * len(committed)
+
     return DealInputs(
         committed_quarterly=tuple(committed),
         qpy=qpy,
@@ -101,7 +119,7 @@ def extract_inputs(pkg: DealPackage, dso_days: int = 90) -> DealInputs:
         prepayment_usd=float(prepay),
         prepayment_drawdown_pct=float(drawdown_pct),
         dso_days=dso,
-        contra_schedule=tuple([0.0] * len(committed)),
+        contra_schedule=tuple(contra),
         total_committed_units=float(sum(committed)),
     )
 
@@ -540,8 +558,10 @@ def compute_economics(
     `driver_mapper.rebate_variant_comparison` and surfaced on the rebate driver's
     accounting note.
     """
-    drivers: list[ModelDriver] = dm.map_terms_to_drivers(pkg, assumptions, dso_days)
-    inputs = extract_inputs(pkg, dso_days)
+    inputs = extract_inputs(pkg, dso_days, assumptions)
+    drivers: list[ModelDriver] = dm.map_terms_to_drivers(
+        pkg, assumptions, dso_days, warrant_contra_schedule=list(inputs.contra_schedule),
+    )
     return DealEconomics(
         assumptions=assumptions,
         drivers=drivers,
