@@ -82,11 +82,13 @@ A "deal" is a **package**: any mix of term sheet, purchase agreement, warrant ag
 
 - **[P0]** Deterministic module. Inputs: WarrantTerms + assumptions (current stock price, per-tranche vest probability sliders, simple volatility). Fair value per tranche = shares × (assumed vest-date price − exercise price) × vest probability; optional Black–Scholes mode labeled illustrative. Outputs: contra-revenue schedule allocated over the deployment each tranche relates to; **effective net ASP waterfall** (sticker → rebates → warrant → all-in); GAAP vs cash/commercial views with explicit bridge; dilution (% of shares outstanding; value transferred at three stock-price levels); asymmetry callout (warrant cost rises with the seller's own stock success).
 - Accounting framing in all notes: equity to a customer = consideration payable to a customer → reduction of transaction price (contra-revenue) under ASC 606; measured under ASC 718.
+- **Correlation caveat (document in `warrant_economics` docstrings + the CRB memo's warrant section).** Valuing the warrant with a single spot price and **independent** per-tranche vest probabilities is a deliberate simplification. In reality, deployment milestones and stock-price hurdles are **positively correlated** — deal success lifts the seller's stock, which makes the later, higher hurdles ($300/$400) more likely to clear at the same time the deployment milestones are hit. So the model **likely understates warrant cost in the upside scenario** (the tranches most likely to vest are exactly the most expensive ones). State this explicitly wherever warrant numbers appear; it is the honest health-warning on the warrant valuation.
 
 ## 5. Assumptions library, provenance, and governance
 
 - **[P0]** `data/assumptions_library.json`: per-generation defaults (power, ASP, COGS curve, quarterly supply capacity) and globals (PUE, WACC, tax rate, opex %, payment-terms→DSO map, default vest probabilities). Every entry: value + basis note + as-of date. Engine reads the library; nothing hardcoded.
 - **[P0] Provenance on every assumption**, enum: `contract §N` | `term sheet` | `library default` | `placeholder — confirm with <team>` | `user override`. Surfaced in UI and Excel.
+- **[P0] Assumption Register (Phases 6–7).** A single register listing **every model input**, classified by type — `contract_fact` | `market_data` | `policy_number` | `strategic_judgment` — and carrying an **OWNER field naming who confirms it** (the accountability column the provenance system currently lacks). Examples: contract facts → "contract clause §N"; market data → "market data — refresh before use"; policy numbers → "Treasury sets WACC"; strategic judgment → "deal team owns vest probabilities & downside demand". **COGS** must carry "confirm with cost accounting"; **WACC** must carry "confirm with Treasury". The register surfaces as **its own Excel tab**, feeds the **Assumption Gap Report (§9.6)**, and extends the provenance system (`AssumptionProvenance`) with the owner/accountability dimension. It is the single place an analyst sees what each number is, where it came from, and whose sign-off it needs.
 - **[P0] Change journal:** every assumption or term edit on a deal records (timestamp, field, old, new, note). Rendered as a per-version history; exported to the Excel Changelog tab. This is audit/governance, and it also feeds the variance bridge narrative.
 
 ## 6. Validation layer & human review
@@ -118,25 +120,40 @@ A "deal" is a **package**: any mix of term sheet, purchase agreement, warrant ag
 
 ### 9.1 Excel model [P0] — the credibility artifact
 
-**Design principle — traceability over cleverness (load-bearing for Phase 7):**
-- **Simple arithmetic only.** No INDEX/MATCH, VLOOKUP, array formulas, or nested
-  IFs. One calculation step per labeled row (`=B5*B6`, `=B7-B8`). Build the sheet
-  like a circuit: signal flows input → step → step → output, and any value traces
-  back to its inputs by eye.
-- **One engine step per row.** Each Excel row maps to one engine step, in the same
-  order (the `QuarterRow` fields already give this granularity). The spreadsheet
-  IS the engine's logic made visible.
-- **Many simple single-purpose tabs over few clever ones.** A finance person who
-  didn't build it must be able to follow any number to its source and edit any
-  assumption confidently.
-- **Flag every assumption with more than one defensible value** (rebate
-  dual-reading, `[***]`-redacted values, library-default guesses): show the value
-  used, the alternative, the dollar impact of the choice, and a "confirm with
-  [team]" flag. Include a simple A/B toggle cell for the rebate reading
-  (prospective vs retroactive-within-year) that flows through the formula stack.
+> ### ⭐ THE MOST IMPORTANT EXCEL RULE — BUILD THE EXCEL LIKE A CIRCUIT
+> **Traceability over cleverness.** This rule outranks every other Excel
+> consideration. Cleverness that obscures the flow is a **defect, not a feature.**
+>
+> - **The model is a visible stack of simple arithmetic.** Signal flows
+>   input → step → step → output, and anyone can trace any value back through the
+>   steps by eye.
+> - **NO advanced formulas.** No INDEX/MATCH, no VLOOKUP, no array formulas, no
+>   nested IFs. **Simple arithmetic only** (`=B5*B6`, `=B7-B8`).
+> - **ONE calculation step per labeled row**, read top to bottom like a sentence.
+>   **Show the work:** a gross-revenue row, then a rebate row, then
+>   `net revenue = gross row − rebate row` — never one compressed mega-formula.
+> - **Formulas reference clearly-labeled cells on the same or adjacent area**, not
+>   lookups scattered across tabs.
+> - **Many simple single-purpose tabs are encouraged over few clever ones.**
+> - **The test:** a finance person who did NOT build it can open it, follow any
+>   number to its source, and add or change an assumption confidently without
+>   hunting for where a value came from. (This mirrors how transparent, editable
+>   models are built in practice.)
+>
+> **Each Excel row maps to one engine step** — the `QuarterRow` fields already
+> give this granularity — **in the same order, so the spreadsheet IS the engine's
+> logic made visible.**
+
+**Also (assumption transparency):** flag every assumption with more than one
+defensible value (rebate dual-reading, `[***]`-redacted values, library-default
+guesses): show the value used, the alternative, the dollar impact of the choice,
+and a "confirm with [team]" flag. Include a simple A/B toggle cell for the rebate
+reading (prospective vs retroactive-within-year) that flows through the formula
+stack.
 
 openpyxl workbook:
 - **Assumptions tab:** every input, provenance class color-coded, mandatory Source/Basis column. Named ranges for key inputs; formula cells locked (sheet protection with inputs unlocked).
+- **Assumption Register tab (§5):** every model input with its type (`contract_fact` / `market_data` / `policy_number` / `strategic_judgment`) and **OWNER** column (who confirms it — e.g. COGS → "cost accounting", WACC → "Treasury", vest probabilities & downside demand → "deal team"). The accountability view; drives the Assumption Gap Report.
 - **Drivers tab:** terms → drivers with source clause text and document/section.
 - **Model tab:** quarterly P&L, **live formulas only** referencing Assumptions via named ranges — edit ASP in Excel, model recalculates. Zero hardcoded computed cells. Footnote column or cell comments tying each line to its driver and clause.
 - **Warrant Assumptions tab:** a dedicated tab grouping the editable *judgment* inputs — per-tranche vest probabilities and the measurement stock price — **separate from the contract-fact warrant terms** (shares, strike, milestones, hurdles), each flagged "strategic estimate — confirm with deal team". Live formula links so editing a probability or the price recomputes the Warrant and Model tabs. This is where the warrant value's conservative/base/aggressive range is driven.
@@ -144,7 +161,7 @@ openpyxl workbook:
 - **Golden-file test:** generate, reopen, assert formulas (not cached values) in sampled computed cells; recompute one full chain by hand in the test.
 
 ### 9.2 CRB memo [P0]
-One page, markdown in UI + DOCX download: 3-line deal summary (structure incl. equity component); economics table by scenario, GAAP and cash views, with bridge and expected value; effective net ASP line; top 5 risks ranked with quantified exposure and recommended approval condition (warrant dilution, MFN, ambiguity delta, supply feasibility should surface naturally); benchmark sentences; policy verdict (§9.5); recommendation with explicit approval asks. LLM writes prose; every number injected from engine output.
+One page, markdown in UI + DOCX download: 3-line deal summary (structure incl. equity component); economics table by scenario, GAAP and cash views, with bridge and expected value; effective net ASP line; top 5 risks ranked with quantified exposure and recommended approval condition (warrant dilution, MFN, ambiguity delta, supply feasibility should surface naturally); benchmark sentences; policy verdict (§9.5); recommendation with explicit approval asks. LLM writes prose; every number injected from engine output. The **warrant section must carry the correlation caveat (§4)** — that the spot-price + independent-vest-probability valuation likely understates upside-scenario warrant cost because milestones and stock hurdles are positively correlated.
 
 ### 9.3 CRB slide [P1]
 One PowerPoint slide via python-pptx: deal header, economics mini-table, effective-ASP waterfall image, top 3 risks, policy verdict. The job names PowerPoint; one clean slide beats a deck.
@@ -160,7 +177,7 @@ Each schedule appears in the UI and the Excel Accounting Schedules tab, formula-
 `data/crb_policy.json` — configurable thresholds: margin floor, deal size tiers mapped to required approvers, auto-escalation terms (uncapped liability, MFN, warrant/equity component, payment terms beyond net-60, take-or-pay below a floor). Engine evaluates every deal version and outputs a **policy verdict**: pass/escalate per rule, required approver list, and reasons ("requires CFO approval: blended margin 43.8% below 45% floor; MFN present"). Feeds memo and dashboard. This is the Contract Review Board encoded.
 
 ### 9.6 Assumption Gap Report [P0]
-Ranked clarifying questions with dollar sensitivities (§1). UI section + memo section when gaps exist.
+Ranked clarifying questions with dollar sensitivities (§1). UI section + memo section when gaps exist. Draws from the **Assumption Register (§5)**: every input typed `strategic_judgment` or `market_data`, or carrying a `placeholder` provenance, becomes a gap-report line addressed to its named OWNER.
 
 ### 9.7 Glossary [P0]
 `data/glossary.json`: every finance term and abbreviation used anywhere in the UI or outputs (ASP, COGS, NPV, WACC, MFN, take-or-pay, contra-revenue, accrual, contract liability, PUE...) mapped to a one-sentence plain-English explanation. UI shows hover/expander definitions; README includes the full table. No unexplained jargon anywhere in the product.
