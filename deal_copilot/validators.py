@@ -151,15 +151,27 @@ def rebate_tiers_monotonic(pkg: DealPackage) -> list[ValidationIssue]:
 
 
 def take_or_pay_pct_in_range(pkg: DealPackage) -> list[ValidationIssue]:
+    """Range-check the percentage floor — but only when the contract actually
+    uses a percentage-based shortfall. Formula-based shortfalls (real wafer-
+    supply style) skip this rule and are surfaced separately by
+    `take_or_pay_formula_basis_review`.
+    """
     issues: list[ValidationIssue] = []
     for term in _terms_of(pkg, TermType.TAKE_OR_PAY):
+        basis = _param(term, "shortfall_basis", "pct_of_committed")
+        if basis != "pct_of_committed":
+            continue  # not applicable; formula-basis review handles this term
+
         pct = _param(term, "annual_minimum_pct_of_committed")
         if pct is None:
             issues.append(ValidationIssue(
-                term_id=term.term_id, severity="warning",
+                term_id=term.term_id, severity="error",
                 rule_id="take_or_pay_pct_in_range",
-                message="TAKE_OR_PAY term missing annual_minimum_pct_of_committed.",
-                suggested_action="Re-extract; the floor percentage is mandatory for downside modeling.",
+                message="TAKE_OR_PAY term has shortfall_basis='pct_of_committed' "
+                        "but annual_minimum_pct_of_committed is missing.",
+                suggested_action="Re-extract the percentage floor, or set "
+                                 "shortfall_basis to 'unbooked_unit_price_formula' "
+                                 "if the contract uses a formula instead.",
             ))
             continue
         try:
@@ -179,6 +191,31 @@ def take_or_pay_pct_in_range(pkg: DealPackage) -> list[ValidationIssue]:
                 message=f"annual_minimum_pct_of_committed = {pct_f} is outside (0, 1].",
                 suggested_action="Check whether the value should be a decimal (e.g., 0.80) rather than a percent (80).",
             ))
+    return issues
+
+
+def take_or_pay_formula_basis_review(pkg: DealPackage) -> list[ValidationIssue]:
+    """When the contract uses a formula-based or 'other' shortfall mechanism,
+    flag for manual review — the engine treats these as manual-review drivers
+    and does not auto-compute the shortfall amount.
+    """
+    issues: list[ValidationIssue] = []
+    for term in _terms_of(pkg, TermType.TAKE_OR_PAY):
+        basis = _param(term, "shortfall_basis", "pct_of_committed")
+        if basis == "pct_of_committed":
+            continue
+        formula = _param(term, "shortfall_formula_description", "")
+        descriptor = f"basis={basis!r}" + (f", formula={formula!r}" if formula else "")
+        issues.append(ValidationIssue(
+            term_id=term.term_id, severity="info",
+            rule_id="take_or_pay_formula_basis_review",
+            message=f"TAKE_OR_PAY uses a non-percentage shortfall mechanism ({descriptor}). "
+                    f"The engine treats this as a manual-review driver; confirm the "
+                    f"modeled shortfall amount with the deal team before relying on "
+                    f"downside numbers.",
+            suggested_action="Add an AdHocDriver capturing the deal-team-confirmed "
+                             "shortfall figure, or model the downside scenario manually.",
+        ))
     return issues
 
 
@@ -309,6 +346,7 @@ _RULES: list[Callable[[DealPackage], list[ValidationIssue]]] = [
     rebate_tiers_monotonic,
     rebate_pct_out_of_range,
     take_or_pay_pct_in_range,
+    take_or_pay_formula_basis_review,
     payment_terms_recognized,
     dates_parse,
     cross_references_resolved,
@@ -352,6 +390,7 @@ __all__ = [
     "rebate_tiers_monotonic",
     "rebate_pct_out_of_range",
     "take_or_pay_pct_in_range",
+    "take_or_pay_formula_basis_review",
     "payment_terms_recognized",
     "dates_parse",
     "cross_references_resolved",

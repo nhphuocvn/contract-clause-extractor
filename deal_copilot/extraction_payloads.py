@@ -17,7 +17,9 @@ deterministic validators in `validators.py` for shape enforcement.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -115,12 +117,41 @@ class VolumeCommitmentPayload(BaseModel):
 
 
 class TakeOrPayPayload(BaseModel):
+    """Take-or-pay clause parameters.
+
+    Two shortfall mechanisms supported:
+
+      - `shortfall_basis='pct_of_committed'` — the synthetic-contract style.
+        Buyer must pay for at least X% of annual committed volume regardless
+        of actual purchases. `annual_minimum_pct_of_committed` is REQUIRED.
+
+      - `shortfall_basis='unbooked_unit_price_formula'` — the real wafer-supply
+        style (Intel-Micron 2017). The clause defines shortfall by formula
+        (unbooked units × Final Price), not by a percentage floor.
+        `annual_minimum_pct_of_committed` is None; `shortfall_formula_description`
+        carries the verbatim formula text.
+
+      - `shortfall_basis='other'` — anything else. Engine treats the term as a
+        manual-review driver.
+    """
     model_config = ConfigDict(extra="forbid")
 
-    annual_minimum_pct_of_committed: float = Field(
-        gt=0.0, le=1.0,
-        description="Fraction of annual committed volume the buyer must pay for "
-                    "regardless of actual purchases. (0, 1] — strictly > 0.",
+    annual_minimum_pct_of_committed: float | None = Field(
+        default=None,
+        ge=0.0, le=1.0,
+        description="Fraction of annual committed volume the buyer must pay for. "
+                    "REQUIRED when shortfall_basis == 'pct_of_committed'. None when "
+                    "the contract uses a formula-based shortfall.",
+    )
+    shortfall_basis: Literal["pct_of_committed", "unbooked_unit_price_formula", "other"] = Field(
+        default="pct_of_committed",
+        description="How the contract defines the shortfall amount. See class docstring.",
+    )
+    shortfall_formula_description: str | None = Field(
+        default=None,
+        description="Free-text formula when shortfall_basis != 'pct_of_committed'. "
+                    "E.g. 'Buyer shall pay Seller (Binding Forecast shortfall) * "
+                    "(Final Price per Schedule 1)'.",
     )
     shortfall_payment_due_days: int | None = Field(
         default=None,
@@ -136,6 +167,15 @@ class TakeOrPayPayload(BaseModel):
         default=False,
         description="True if Banked Units that remain undrawn at term end are forfeited.",
     )
+
+    @model_validator(mode="after")
+    def _shortfall_basis_consistency(self) -> "TakeOrPayPayload":
+        if self.shortfall_basis == "pct_of_committed" and self.annual_minimum_pct_of_committed is None:
+            raise ValueError(
+                "annual_minimum_pct_of_committed is required when "
+                "shortfall_basis == 'pct_of_committed'."
+            )
+        return self
 
 
 # ---------------------------------------------------------------------------

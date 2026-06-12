@@ -15,7 +15,7 @@ import secrets
 from deal_copilot.schemas import TermType
 
 
-EXTRACTION_PROMPT_VERSION = "v1"
+EXTRACTION_PROMPT_VERSION = "v2"
 
 
 # ---------------------------------------------------------------------------
@@ -111,10 +111,19 @@ TERM_EXTRACTION_PROMPTS: dict[TermType, str] = {
         "ambiguity_flag=true on the wrapping CommercialTerm and populate "
         "variants with both readings (prospective vs retroactive).",
     TermType.TAKE_OR_PAY:
-        "Use the TakeOrPayPayload schema. annual_minimum_pct_of_committed is a "
-        "decimal in (0, 1] — e.g., 0.80 for 80%. Set "
-        "banked_units_eligible_for_carryforward=true if shortfall-paid units "
-        "can be drawn in later quarters.",
+        "Use the TakeOrPayPayload schema. First determine shortfall_basis:\n"
+        " - 'pct_of_committed' if the contract states a percentage floor "
+        "(e.g. 'Buyer shall purchase at least 80% of annual committed volume'). "
+        "Then set annual_minimum_pct_of_committed as a decimal in (0, 1] — "
+        "e.g., 0.80 for 80%. Leave shortfall_formula_description=null.\n"
+        " - 'unbooked_unit_price_formula' if the contract defines the shortfall "
+        "as a formula on unbooked units (e.g. 'Buyer shall pay Seller the "
+        "Binding Forecast shortfall multiplied by the Final Price'). Then "
+        "leave annual_minimum_pct_of_committed=null and copy the verbatim "
+        "formula sentence into shortfall_formula_description.\n"
+        " - 'other' for any other mechanism. Populate shortfall_formula_description.\n"
+        "Set banked_units_eligible_for_carryforward=true if shortfall-paid "
+        "units can be drawn in later quarters.",
     TermType.PREPAYMENT:
         "Extract prepayment facts as CommercialTerm.parameters with keys: "
         "amount_usd (number), paid_at (string, e.g. 'effective_date'), "
