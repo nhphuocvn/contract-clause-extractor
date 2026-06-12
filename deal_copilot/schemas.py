@@ -618,7 +618,18 @@ class ScenarioResult(BaseModel):
     view: ViewMode
     quarterly_pl: list[QuarterRow]
     npv_usd: float
-    payback_quarters: int | None = None
+    payback_quarters: int | None = Field(
+        default=None,
+        description="Payback quarter on the financed cash view — INCLUDING the "
+                    "customer prepayment, which front-loads cash and typically "
+                    "drives this to Q0. Pair with payback_quarters_ex_prepayment.",
+    )
+    payback_quarters_ex_prepayment: int | None = Field(
+        default=None,
+        description="Payback quarter on the deal's own deployment cash flows "
+                    "(collections net of COGS and opex), EXCLUDING the prepayment "
+                    "financing overlay — the operationally meaningful payback.",
+    )
     total_net_revenue: float
     total_gross_margin: float
     total_gross_margin_pct: float

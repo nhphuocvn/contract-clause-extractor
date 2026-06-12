@@ -1,0 +1,94 @@
+{
+  "_meta": {
+    "description": "Default financial assumptions for the Deal Economics Copilot. The engine reads a populated DealAssumptions; nothing here is hardcoded in engine code. Every entry carries value + basis_class (maps to ProvenanceClass) + note + as_of so the UI/Excel layer can render provenance badges and staleness.",
+    "synthetic": true,
+    "as_of": "2026-06-11"
+  },
+
+  "globals": {
+    "pue": {
+      "value": 1.3,
+      "basis_class": "LIBRARY_DEFAULT",
+      "note": "Typical hyperscaler data-center power-usage-effectiveness; industry range 1.1-1.5.",
+      "as_of": "2026-06-11"
+    },
+    "wacc": {
+      "value": 0.10,
+      "basis_class": "LIBRARY_DEFAULT",
+      "note": "Discount rate for NPV. Corporate WACC placeholder; confirm with Treasury per deal.",
+      "as_of": "2026-06-11"
+    },
+    "tax_rate": {
+      "value": 0.21,
+      "basis_class": "LIBRARY_DEFAULT",
+      "note": "U.S. federal statutory corporate rate.",
+      "as_of": "2026-06-11"
+    },
+    "opex_allocation_pct": {
+      "value": 0.12,
+      "basis_class": "LIBRARY_DEFAULT",
+      "note": "Allocated operating expense as a fraction of net revenue; deal-desk default.",
+      "as_of": "2026-06-11"
+    },
+    "unit_cogs_usd": {
+      "value": 15000.0,
+      "basis_class": "LIBRARY_DEFAULT",
+      "note": "Blended per-unit cost of goods sold; overridden per generation when a COGS curve is supplied.",
+      "as_of": "2026-06-11"
+    },
+    "payment_terms_dso_map": {
+      "value": {"net_30": 30, "net_60": 60, "net_90": 90},
+      "basis_class": "LIBRARY_DEFAULT",
+      "note": "Maps recognized payment terms to days-sales-outstanding for the cash view.",
+      "as_of": "2026-06-11"
+    },
+    "default_tranche_vest_probabilities": {
+      "value": [0.9, 0.7, 0.5, 0.3],
+      "basis_class": "LIBRARY_DEFAULT",
+      "note": "Declining vest probability by warrant tranche (later milestones less certain). Consumed by Phase 4 warrant economics.",
+      "as_of": "2026-06-11"
+    },
+    "current_stock_price_usd": {
+      "value": 470.0,
+      "basis_class": "LIBRARY_DEFAULT",
+      "note": "market price as of 2026-06-11, update before warrant analysis",
+      "as_of": "2026-06-11"
+    },
+    "assumed_volatility": {
+      "value": 0.45,
+      "basis_class": "LIBRARY_DEFAULT",
+      "note": "Annualized equity volatility for the optional Black-Scholes warrant mode (illustrative).",
+      "as_of": "2026-06-11"
+    }
+  },
+
+  "generations": {
+    "gen_a_mi355x": {
+      "generation_label": "Gen A (MI355X)",
+      "power_per_gpu_watts": {
+        "value": 1000.0,
+        "basis_class": "LIBRARY_DEFAULT",
+        "note": "Nameplate accelerator power draw, watts.",
+        "as_of": "2026-06-11"
+      },
+      "base_asp_usd": {
+        "value": 25000.0,
+        "basis_class": "LIBRARY_DEFAULT",
+        "note": "Per-unit base average selling price for this generation.",
+        "as_of": "2026-06-11"
+      },
+      "cogs_curve_per_year_usd": {
+        "value": [15500.0, 14500.0, 13500.0],
+        "basis_class": "LIBRARY_DEFAULT",
+        "note": "Per-year unit COGS, learning-curve decline. Consumed by multi-gen modeling (deferred P1).",
+        "as_of": "2026-06-11"
+      },
+      "supply_capacity_per_quarter_units": {
+        "value": 22000,
+        "basis_class": "LIBRARY_DEFAULT",
+        "note": "Assumed quarterly supply ceiling for the feasibility check (deferred P1).",
+        "as_of": "2026-06-11"
+      }
+    }
+  }
+}
