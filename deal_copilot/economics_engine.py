@@ -37,6 +37,7 @@ from deal_copilot.schemas import (
     SensitivityRow,
     TermType,
     ViewMode,
+    WarrantTerms,
 )
 from deal_copilot.driver_mapper import Retroactivity
 
@@ -65,6 +66,7 @@ class DealInputs:
     contra_schedule: tuple[float, ...]
     adhoc_schedule: tuple[float, ...]
     total_committed_units: float
+    warrant_terms: WarrantTerms | None = None
 
 
 def _param(term, key, default=None):
@@ -106,6 +108,13 @@ def extract_inputs(
     # Warrant contra-revenue fills the slot Phase 3 wired with zeros. Imported
     # locally to keep the module-load arrow one-way (warrant_economics imports
     # driver_mapper, never economics_engine).
+    #
+    # This BASE schedule (computed on full committed deployment) is retained for
+    # the headline `effective_asp` waterfall. Per-SCENARIO contra is recomputed in
+    # `run_scenario` on each scenario's actual units, because the warrant vests on
+    # deployment (Warrant §2): fewer deployed units cross fewer milestones, so a
+    # reduced-volume scenario carries less contra. Reusing this BASE schedule on a
+    # DOWNSIDE scenario was the bug that drove GAAP net revenue negative.
     if pkg.warrant_terms is not None:
         from deal_copilot import warrant_economics as we
         contra = we.contra_revenue_schedule(pkg.warrant_terms, assumptions, committed)
@@ -129,6 +138,7 @@ def extract_inputs(
         contra_schedule=tuple(contra),
         adhoc_schedule=tuple(adhoc),
         total_committed_units=float(sum(committed)),
+        warrant_terms=pkg.warrant_terms,
     )
 
 
@@ -481,9 +491,18 @@ def run_scenario(
     rebate_sched = dm.compute_rebate_schedule(
         list(inputs.rebate_tiers), units, inputs.base_asp, retroactivity, inputs.qpy
     )
+    # Warrant contra must scale with THIS scenario's deployment, not the BASE
+    # schedule. The warrant vests on deployment (Warrant §2), so a reduced-volume
+    # scenario crosses fewer milestones and carries less contra. Recompute here on
+    # the scenario units; `inputs.contra_schedule` (BASE) is zeros when no warrant.
+    if inputs.warrant_terms is not None:
+        from deal_copilot import warrant_economics as we
+        contra_sched = we.contra_revenue_schedule(inputs.warrant_terms, assumptions, units)
+    else:
+        contra_sched = list(inputs.contra_schedule)
     extra = _scenario_extra_revenue(scenario, inputs, units)
     rows = build_quarterly_pl(
-        units, inputs.base_asp, rebate_sched, list(inputs.contra_schedule),
+        units, inputs.base_asp, rebate_sched, contra_sched,
         assumptions.unit_cogs_usd, assumptions.opex_allocation_pct, view, extra,
         list(inputs.adhoc_schedule),
     )
