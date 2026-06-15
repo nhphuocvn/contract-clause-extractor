@@ -40,15 +40,15 @@ A pure, fully-tested financial model that turns the extracted terms into deal ec
 - **Working capital modeled on a monthly grid.** Cash timing (not revenue recognition) runs monthly across all three legs — collections (DSO), supplier payments (DPO), and the inventory build (lead time) — so net-30 / net-60 / net-90 produce genuinely different peak receivables (**$166.7M / $333.3M / $500.0M**), NPV, and operating cash draw. The ramp's inventory build shows up as the **−$157M** working-capital draw it really is, pushing operational payback to Q6.
 - **CRB-ready outputs.** A configurable **policy engine** routes the deal (verdict + required approvers), an **Assumption Register** tags every input by type and owner, an **Assumption Gap Report** ranks the open questions by dollar sensitivity, and a **CRB memo** is assembled with every number injected from the engine — the AI only writes the prose.
 
-**Quality bar:** every piece of financial math is covered by tests whose expected values were computed **by hand**, not read back from the code — **139 passing tests.**
+**Quality bar:** every piece of financial math is covered by tests whose expected values were computed **by hand**, not read back from the code — **204 passing tests** (including 49 Excel golden-file tests that assert live formulas, not cached values).
 
 ---
 
 ## Status: active development
 
-This is a backend prototype. The extraction and economics core are built and tested; the analyst-facing application around them is planned.
+This is a backend prototype. The extraction and economics core — and the Excel model that presents it — are built and tested; the analyst-facing web application around them is planned.
 
-**Built (Phases 1–6):**
+**Built (Phases 1–7):**
 - ✅ Data schemas + a synthetic two-document deal package with ground truth
 - ✅ Contract extraction, validation, untrusted-input defense, and an accuracy harness
 - ✅ Economics engine — P&L, scenarios, NPV, sensitivities, rebate-ambiguity range, accounting schedules
@@ -58,9 +58,9 @@ This is a backend prototype. The extraction and economics core are built and tes
 - ✅ Policy engine — encodes a Contract Review Board's rules and auto-routes a deal (verdict + required approvers: "ESCALATE — CFO, General Counsel, Treasury")
 - ✅ Assumption Register + Assumption Gap Report — every input typed and owner-tagged; open questions ranked by dollar sensitivity (COGS $225M → cost accounting; rebate ambiguity $41M → Legal)
 - ✅ CRB memo + benchmarks + glossary — a one-page approval memo, prose written by the AI but every number injected from the engine; portfolio benchmarks with a staleness check; a no-jargon glossary
+- ✅ Excel export — a 14-tab workbook built like a circuit: every input is an editable named-range cell and every downstream number is a formula that reads it, so a finance person can trace any figure to its source and edit any assumption and watch the model recompute (NPV is a live `=NPV()`; the warrant contra-revenue scales with a single "Demand %" dial). It is self-documenting (plain-English notes, verbatim clause text, and hover comments) and **fully editable — no sheet protection, no passwords.** Verified clean: a cell-by-cell scan across all 14 tabs confirms zero formula-error cells (`#NAME?` / `#REF!` / `#VALUE!`).
 
 **Planned:**
-- ⬜ Excel export — a live-formula workbook built like a circuit, so a finance person can trace and edit any number
 - ⬜ A user interface for the deal-modeling workflow
 
 **A note on the UI:** the *economics / deal-modeling* layer described above has **no interface yet** — it runs and is exercised through its test suite and small demo scripts. The repository also contains the project's predecessor, a simpler **Contract Clause Extractor** with a working command-line tool and Streamlit web app for single-clause field extraction; the Deal Economics Copilot is built on that foundation. (See *Repository layout* below.)
@@ -88,10 +88,11 @@ These are exactly the questions that get asked in an approval meeting — and th
 - Assumptions come from a versioned library with **provenance on every value** (contract clause / market data / policy number / strategic judgment), each carrying who is accountable for confirming it.
 
 ### Repository layout
-- `deal_copilot/` — the Deal Economics Copilot (this README): extraction, validation, economics engine, warrant economics.
-- `tests/` — the 71 hand-verified financial tests.
+- `deal_copilot/` — the Deal Economics Copilot (this README): extraction, validation, economics engine, warrant economics, and `excel_export.py` (the live-formula workbook builder).
+- `tests/` — the 204 hand-verified tests (financial math + Excel golden-file).
+- `scripts/` — `build_demo_workbook.py` (generates `deal_model_demo.xlsx`) and `_verify_no_error_cells.py` (scans the workbook for formula-error cells).
 - `data/` — the synthetic deal package, ground truth, and the assumptions library.
-- `extract.py`, `app.py`, `index.py`, `query.py`, `excel_export.py` — the predecessor **Contract Clause Extractor** (CLI + Streamlit UI) the copilot builds on.
+- `extract.py`, `app.py`, `index.py`, `query.py`, `excel_export.py` (repo root) — the predecessor **Contract Clause Extractor** (CLI + Streamlit UI) the copilot builds on.
 - `KICKOFF.md` — the full product specification and build log.
 
 ### Running the tests
@@ -104,6 +105,12 @@ Two demo scripts print the economics and warrant analysis for the synthetic deal
 ```powershell
 python -m deal_copilot._smoke.compute_phase3_economics
 python -m deal_copilot._smoke.compute_warrant_economics
+```
+
+Build the full Excel model for the synthetic deal (no API key needed):
+```powershell
+python scripts/build_demo_workbook.py deal_model_demo.xlsx
+python scripts/_verify_no_error_cells.py deal_model_demo.xlsx   # confirms zero formula-error cells
 ```
 
 All sample documents are **synthetic and labelled fictional**; no real customer data is used.

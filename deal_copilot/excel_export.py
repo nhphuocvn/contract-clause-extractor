@@ -210,6 +210,11 @@ def _static(cell, value: Any) -> None:
 
 
 def _wrapped(ws, row: int, col: int, text: str, height: int | None = None) -> None:
+    # This writer only ever carries prose (notes, clause text, explanations) — never a
+    # formula. A leading "=" would make Excel try to evaluate the sentence as a formula
+    # (e.g. "= start + units…" → #NAME?), so strip it and present the text verbatim.
+    if isinstance(text, str) and text.startswith("="):
+        text = text[1:].lstrip()
     c = ws.cell(row=row, column=col, value=text)
     c.alignment = _WRAP
     c.font = _FONT_NOTE
@@ -534,8 +539,6 @@ def _write_assumptions(ws, assumptions: DealAssumptions, inp, pkg: DealPackage,
                                fill=_F_OK, font=Font(bold=True, color="006100")))
     cell_map["ProbSumCell"] = f"Assumptions!$B${r - 1}"
 
-    ws.protection.sheet = True
-    ws.protection.password = ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -638,8 +641,6 @@ def _write_warrant_assump(ws, assumptions: DealAssumptions, warrant: WarrantEcon
              "deployment milestones are hit. See CRB_Summary.", height=80)
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=7)
 
-    ws.protection.sheet = True
-    ws.protection.password = ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -784,7 +785,7 @@ def _write_model(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> None:
                       "quarter. Used both for rebate tier zones and for warrant milestone vesting.")
     write_row(_M_CUM_END, "Cumulative units (end of quarter)",
               [f"=${qcols[q]}{_M_CUM_START}+${qcols[q]}{_M_UNITS}" for q in range(n_q)],
-              f"=${qcols[-1]}{_M_CUM_END}", "= start + units shipped this quarter.",
+              f"=${qcols[-1]}{_M_CUM_END}", "start + units shipped this quarter.",
               fill=_F_HELPER)
 
     # ── REBATE ──
@@ -795,7 +796,7 @@ def _write_model(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> None:
         (_M_HEAD2, "RebateTier3Threshold", "Headroom below Tier 3"),
     ):
         write_row(hrow, label, [f"=MAX(0,{thr_name}-${qcols[q]}{_M_CUM_START})" for q in range(n_q)],
-                  None, f"= MAX(0, {thr_name} − cumulative start). MAX/MIN arithmetic, no nested IFs.",
+                  None, f"MAX(0, {thr_name} − cumulative start). MAX/MIN arithmetic, no nested IFs.",
                   fill=_F_HELPER)
     zone_specs = [
         (_M_ZONE0, "Units in no-rebate zone",
@@ -927,7 +928,7 @@ def _write_model(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> None:
               fill=_F_HELPER)
     write_row(_M_PREPAY_END, "Prepayment remaining (end of quarter)",
               [f"=${qcols[q]}{_M_PREPAY_AVL}-${qcols[q]}{_M_DRAWDOWN}" for q in range(n_q)],
-              None, "= available − drawdown.", fill=_F_HELPER)
+              None, "available − drawdown.", fill=_F_HELPER)
     write_row(_M_COLLECTED, "Customer cash collected = billing − drawdown",
               [f"=${qcols[q]}{_M_NET_BILL}-${qcols[q]}{_M_DRAWDOWN}" for q in range(n_q)],
               sum_row(_M_COLLECTED), "Cash actually received from the customer this quarter "
@@ -987,8 +988,6 @@ def _write_model(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> None:
                   "shortfall appear. The engine folds this into the DOWNSIDE scenario's billing.")
         r += 1
 
-    ws.protection.sheet = True
-    ws.protection.password = ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1009,8 +1008,6 @@ def _write_warrant(ws, warrant: WarrantEconomics | None, inp, pkg: DealPackage,
                 value="No warrant on this deal — contra-revenue is zero.").font = _FONT_ITALIC_GRAY
         for q in range(n_q):
             ws.cell(row=_W_CONTRA_ROW, column=_Q1_COL + q, value=0)
-        ws.protection.sheet = True
-        ws.protection.password = ""
         return
 
     # ── Tranche valuation table (live on price + vest probs) ──
@@ -1136,8 +1133,6 @@ def _write_warrant(ws, warrant: WarrantEconomics | None, inp, pkg: DealPackage,
              "model likely UNDERSTATES warrant cost in the upside.", height=80)
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=12)
 
-    ws.protection.sheet = True
-    ws.protection.password = ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1240,8 +1235,6 @@ def _write_scenarios(ws, econ: DealEconomics, pkg: DealPackage, as_of: str, cell
     ws.cell(row=r, column=1,
             value=f"Engine snapshot generated: {as_of}.").font = _FONT_ITALIC_GRAY
 
-    ws.protection.sheet = True
-    ws.protection.password = ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1350,8 +1343,6 @@ def _write_acct_sched(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> 
     _note(peak, "MAX of the monthly AR row — the peak receivables exposure. Live: scales with "
                 "units, ASP and Demand%.")
 
-    ws.protection.sheet = True
-    ws.protection.password = ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
