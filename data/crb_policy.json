@@ -1,0 +1,63 @@
+{
+  "_meta": {
+    "description": "Contract Review Board policy — configurable thresholds and approver routing (KICKOFF §9.5). Illustrative editable defaults: 45% margin floor; VP/SVP/CFO deal-size tiers at $100M / $1B; auto-escalation on uncapped liability, MFN, warrant/equity, payment terms beyond net-60, and take-or-pay below a 70% floor. The policy engine evaluates every deal version against these rules.",
+    "as_of": "2026-06-11"
+  },
+  "rules": [
+    {
+      "rule_id": "margin_floor_45",
+      "kind": "MARGIN_FLOOR",
+      "description": "Blended gross margin must meet the 45% floor (cash/commercial view).",
+      "parameters": { "threshold_pct": 0.45 },
+      "required_approvers_on_breach": ["CFO"]
+    },
+    {
+      "rule_id": "deal_size_tiers",
+      "kind": "DEAL_SIZE_TIER",
+      "description": "Committed value routes to an approver tier: <=$100M VP, <=$1B SVP, >$1B CFO.",
+      "parameters": {
+        "tiers": [
+          { "max_usd": 100000000, "approvers": ["VP"] },
+          { "max_usd": 1000000000, "approvers": ["SVP"] },
+          { "max_usd": null, "approvers": ["CFO"] }
+        ]
+      },
+      "required_approvers_on_breach": []
+    },
+    {
+      "rule_id": "uncapped_liability",
+      "kind": "UNCAPPED_LIABILITY",
+      "description": "Any uncapped liability exposure (e.g. uncapped IP indemnification) escalates.",
+      "parameters": {},
+      "required_approvers_on_breach": ["General Counsel"]
+    },
+    {
+      "rule_id": "mfn_present",
+      "kind": "MFN_PRESENT",
+      "description": "A most-favored-nation clause escalates (portfolio repricing exposure).",
+      "parameters": {},
+      "required_approvers_on_breach": ["General Counsel"]
+    },
+    {
+      "rule_id": "warrant_present",
+      "kind": "WARRANT_PRESENT",
+      "description": "An equity/warrant component escalates (contra-revenue, dilution, ASC 606/718).",
+      "parameters": {},
+      "required_approvers_on_breach": ["CFO", "General Counsel"]
+    },
+    {
+      "rule_id": "payment_terms_net60",
+      "kind": "PAYMENT_TERMS_THRESHOLD",
+      "description": "Payment terms beyond net-60 escalate (working-capital drag).",
+      "parameters": { "max_net_days": 60 },
+      "required_approvers_on_breach": ["Treasury"]
+    },
+    {
+      "rule_id": "take_or_pay_floor_70",
+      "kind": "TAKE_OR_PAY_FLOOR",
+      "description": "Take-or-pay floor below 70% escalates (insufficient revenue protection).",
+      "parameters": { "min_pct": 0.70 },
+      "required_approvers_on_breach": ["CFO"]
+    }
+  ]
+}

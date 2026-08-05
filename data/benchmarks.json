@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "Portfolio / industry benchmark medians for the CRB memo's benchmark sentences (KICKOFF §9.2). Each entry carries an as_of date so the engine can flag stale benchmarks (>2 quarters old). Synthetic, illustrative figures.",
+    "synthetic": true,
+    "as_of": "2026-03-31"
+  },
+  "benchmarks": [
+    {
+      "metric": "blended_gross_margin_pct",
+      "value": 0.42,
+      "unit": "fraction",
+      "as_of": "2026-03-31",
+      "source": "GPU deal-desk portfolio median, FY26 Q1"
+    },
+    {
+      "metric": "rebate_pct_of_revenue",
+      "value": 0.05,
+      "unit": "fraction",
+      "as_of": "2026-03-31",
+      "source": "GPU deal-desk portfolio median, FY26 Q1"
+    },
+    {
+      "metric": "payment_terms_net_days",
+      "value": 60,
+      "unit": "days",
+      "as_of": "2026-03-31",
+      "source": "GPU deal-desk portfolio median, FY26 Q1"
+    },
+    {
+      "metric": "take_or_pay_pct",
+      "value": 0.75,
+      "unit": "fraction",
+      "as_of": "2025-09-30",
+      "source": "GPU deal-desk portfolio median, FY25 Q3 (not refreshed)"
+    }
+  ]
+}
