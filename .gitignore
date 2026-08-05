@@ -12,3 +12,4 @@ cache/
 # Generated demo workbooks (build with scripts/build_demo_workbook.py)
 deal_model_*.xlsx
 ~$*.xlsx
+.venv/
