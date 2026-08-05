@@ -108,50 +108,66 @@ DEAL_CONFIDENTIAL = "CONFIDENTIAL — SYNTHETIC / FICTIONAL — FOR DEMO USE ONL
 
 # ─── Model tab row layout (title row 1, header row 2, data from row 3) ─────────
 
-_M_TITLE       = 1
-_M_HDR         = 2
-_M_SEC_REV     = 3
-_M_UNITS       = 4    # Demand-adjusted units = committed × Demand%
-_M_ASP         = 5
-_M_GROSS_REV   = 6
-_M_SEC_DEPLOY  = 7
-_M_CUM_START   = 8    # cumulative deployed units, start of quarter
-_M_CUM_END     = 9    # cumulative deployed units, end of quarter
-_M_SEC_REBATE  = 10
-_M_HEAD0       = 11
-_M_HEAD1       = 12
-_M_HEAD2       = 13
-_M_ZONE0       = 14
-_M_ZONE1       = 15
-_M_ZONE2       = 16
-_M_ZONE3       = 17
-_M_REBATE_A    = 18
-_M_REBATE_B    = 19
-_M_ACT_REBATE  = 20
-_M_SEC_NET     = 21
-_M_WARRANT_CTR = 22
-_M_ADHOC       = 23
-_M_NET_GAAP    = 24   # GAAP net revenue (carries warrant contra)
-_M_NET_CASH    = 25   # cash/commercial net revenue (excludes non-cash warrant)
-_M_SEC_COST    = 26
-_M_UNIT_COGS   = 27
-_M_COGS        = 28
-_M_GM_GAAP     = 29
-_M_GMPCT_GAAP  = 30
-_M_GM_CASH     = 31
-_M_GMPCT_CASH  = 32
-_M_OPEX_PCT    = 33
-_M_ALLOC_OPEX  = 34
-_M_CONTRIB     = 35
-_M_SEC_CASH    = 36
-_M_NET_BILL    = 37   # cash net billing = gross − active rebate
-_M_PREPAY_AVL  = 38   # prepayment available, start of quarter
-_M_DRAWDOWN    = 39
-_M_PREPAY_END  = 40
-_M_COLLECTED   = 41   # customer cash collected = net billing − drawdown
-_M_OPCASH      = 42   # operating cash = collected − COGS − opex
-_M_WACC_Q      = 43   # quarterly WACC
-_M_NPV         = 44   # live =NPV()
+
+class _ModelRows:
+    """Model-tab row layout, GENERATED from the actual rebate-tier count.
+
+    N rebate tiers produce N headroom rows and N + 1 zone rows (below tier 1,
+    one band per tier, and everything above the top tier). Every row beneath the
+    rebate block therefore shifts with N, so the Warrant and Acct_Sched tabs read
+    their Model row numbers off this object instead of fixed constants. With the
+    standard 3-tier deal the numbers are identical to the previous hardcoded
+    layout, so a 3-tier workbook is byte-for-byte unchanged.
+
+    N = 0 (a contract with no rebate at all) is legal: no headroom or zone rows
+    are emitted and the two rebate readings are written as a literal zero.
+    """
+
+    TITLE = 1
+    HDR = 2
+
+    def __init__(self, n_tiers: int) -> None:
+        self.n_tiers = n_tiers
+        r = 3
+        self.SEC_REV = r; r += 1
+        self.UNITS = r; r += 1        # Demand-adjusted units = committed × Demand%
+        self.ASP = r; r += 1
+        self.GROSS_REV = r; r += 1
+        self.SEC_DEPLOY = r; r += 1
+        self.CUM_START = r; r += 1    # cumulative deployed units, start of quarter
+        self.CUM_END = r; r += 1      # cumulative deployed units, end of quarter
+        self.SEC_REBATE = r; r += 1
+        self.HEAD = [r + i for i in range(n_tiers)]; r += n_tiers
+        n_zones = n_tiers + 1 if n_tiers else 0
+        self.ZONE = [r + i for i in range(n_zones)]; r += n_zones
+        self.REBATE_A = r; r += 1
+        self.REBATE_B = r; r += 1
+        self.ACT_REBATE = r; r += 1
+        self.SEC_NET = r; r += 1
+        self.WARRANT_CTR = r; r += 1
+        self.ADHOC = r; r += 1
+        self.NET_GAAP = r; r += 1     # GAAP net revenue (carries warrant contra)
+        self.NET_CASH = r; r += 1     # cash net revenue (excludes non-cash warrant)
+        self.SEC_COST = r; r += 1
+        self.UNIT_COGS = r; r += 1
+        self.COGS = r; r += 1
+        self.GM_GAAP = r; r += 1
+        self.GMPCT_GAAP = r; r += 1
+        self.GM_CASH = r; r += 1
+        self.GMPCT_CASH = r; r += 1
+        self.OPEX_PCT = r; r += 1
+        self.ALLOC_OPEX = r; r += 1
+        self.CONTRIB = r; r += 1
+        self.SEC_CASH = r; r += 1
+        self.NET_BILL = r; r += 1     # cash net billing = gross − active rebate
+        self.PREPAY_AVL = r; r += 1   # prepayment available, start of quarter
+        self.DRAWDOWN = r; r += 1
+        self.PREPAY_END = r; r += 1
+        self.COLLECTED = r; r += 1    # cash collected = net billing − drawdown
+        self.OPCASH = r; r += 1       # operating cash = collected − COGS − opex
+        self.WACC_Q = r; r += 1       # quarterly WACC
+        self.NPV = r; r += 1          # live =NPV()
+
 
 _Q1_COL = 2   # Q1 = column B
 
@@ -699,9 +715,11 @@ def _write_drivers(ws, econ: DealEconomics, pkg: DealPackage, inp, as_of: str,
 # Model tab — the live circuit
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _write_model(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> None:
+def _write_model(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict,
+                 rows: _ModelRows) -> None:
     ws.title = "Model"
     n_q = len(inp.committed_quarterly)
+    n_tiers = rows.n_tiers
     qpy = inp.qpy
     first_q = _Q1_COL
     last_q = first_q + n_q - 1
@@ -719,11 +737,11 @@ def _write_model(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> None:
                  "Model — quarterly P&L circuit (USD, actual dollars; NPV pre-tax)", as_of)
 
     # Header row
-    ws.cell(row=_M_HDR, column=1, value="Engine step / row label").font = _FONT_BOLD
+    ws.cell(row=rows.HDR, column=1, value="Engine step / row label").font = _FONT_BOLD
     for q in range(n_q):
-        ws.cell(row=_M_HDR, column=first_q + q, value=f"Q{q + 1}").font = _FONT_BOLD
-    ws.cell(row=_M_HDR, column=total_col, value="TOTAL").font = _FONT_BOLD
-    ws.cell(row=_M_HDR, column=note_col, value="Note / source").font = _FONT_BOLD
+        ws.cell(row=rows.HDR, column=first_q + q, value=f"Q{q + 1}").font = _FONT_BOLD
+    ws.cell(row=rows.HDR, column=total_col, value="TOTAL").font = _FONT_BOLD
+    ws.cell(row=rows.HDR, column=note_col, value="Note / source").font = _FONT_BOLD
     ws.freeze_panes = "B3"
 
     qcols = [_cl(first_q + q) for q in range(n_q)]
@@ -753,216 +771,229 @@ def _write_model(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> None:
             _note(ws.cell(row=row, column=first_q), comment)
 
     # ── UNITS & REVENUE ──
-    _section_hdr(ws, _M_SEC_REV, "— UNITS & REVENUE —", n_cols)
-    write_row(_M_UNITS, "Units shipped = committed × Demand%",
-              [f"=UnitQ{q + 1}*Demand" for q in range(n_q)], sum_row(_M_UNITS),
+    _section_hdr(ws, rows.SEC_REV, "— UNITS & REVENUE —", n_cols)
+    write_row(rows.UNITS, "Units shipped = committed × Demand%",
+              [f"=UnitQ{q + 1}*Demand" for q in range(n_q)], sum_row(rows.UNITS),
               "Committed quarterly schedule scaled by the Demand% dial (Assumptions).",
               comment="Units = committed schedule (UnitQn) × Demand%. The single master volume "
                       "control: set Demand%=75% on Assumptions and every downstream number "
                       "(revenue, rebate, COGS, warrant contra, margin, NPV) recomputes.")
-    cell_map["TotalUnits"] = f"Model!${tcl}${_M_UNITS}"
-    _note(ws.cell(row=_M_UNITS, column=total_col),
+    cell_map["TotalUnits"] = f"Model!${tcl}${rows.UNITS}"
+    _note(ws.cell(row=rows.UNITS, column=total_col),
           "TOTAL UNITS — computed once here and reused everywhere (effective ASP, per-unit "
           "figures) via the named range 'TotalUnits'. No inline SUM is repeated elsewhere.")
 
-    write_row(_M_ASP, "ASP ($/unit)", ["=ASP"] * n_q, "=ASP",
+    write_row(rows.ASP, "ASP ($/unit)", ["=ASP"] * n_q, "=ASP",
               "Base sticker price, constant across quarters (Assumptions §1).",
               comment="Reads the ASP named range. Change ASP on Assumptions and every quarter's "
                       "gross revenue updates.")
-    write_row(_M_GROSS_REV, "Gross Revenue = Units × ASP",
-              [f"={qcols[q]}{_M_UNITS}*{qcols[q]}{_M_ASP}" for q in range(n_q)],
-              sum_row(_M_GROSS_REV), "Units shipped × ASP.",
+    write_row(rows.GROSS_REV, "Gross Revenue = Units × ASP",
+              [f"={qcols[q]}{rows.UNITS}*{qcols[q]}{rows.ASP}" for q in range(n_q)],
+              sum_row(rows.GROSS_REV), "Units shipped × ASP.",
               comment="Units (row above) × ASP. The top of the revenue waterfall.")
-    cell_map["ModelGrossRevTotal"] = f"Model!${tcl}${_M_GROSS_REV}"
+    cell_map["ModelGrossRevTotal"] = f"Model!${tcl}${rows.GROSS_REV}"
 
     # ── DEPLOYMENT (cumulative) ──
-    _section_hdr(ws, _M_SEC_DEPLOY, "— CUMULATIVE DEPLOYMENT (drives rebate tiers & warrant vesting) —", n_cols)
-    cum_start = [0] + [f"=${qcols[q - 1]}{_M_CUM_END}" for q in range(1, n_q)]
-    write_row(_M_CUM_START, "Cumulative units (start of quarter)", cum_start,
-              f"=${qcols[-1]}{_M_CUM_END}", "Running total deployed through the prior quarter.",
+    _section_hdr(ws, rows.SEC_DEPLOY, "— CUMULATIVE DEPLOYMENT (drives rebate tiers & warrant vesting) —", n_cols)
+    cum_start = [0] + [f"=${qcols[q - 1]}{rows.CUM_END}" for q in range(1, n_q)]
+    write_row(rows.CUM_START, "Cumulative units (start of quarter)", cum_start,
+              f"=${qcols[-1]}{rows.CUM_END}", "Running total deployed through the prior quarter.",
               fill=_F_HELPER,
               comment="Cumulative deployed units at the start of the quarter = end of the prior "
                       "quarter. Used both for rebate tier zones and for warrant milestone vesting.")
-    write_row(_M_CUM_END, "Cumulative units (end of quarter)",
-              [f"=${qcols[q]}{_M_CUM_START}+${qcols[q]}{_M_UNITS}" for q in range(n_q)],
-              f"=${qcols[-1]}{_M_CUM_END}", "start + units shipped this quarter.",
+    write_row(rows.CUM_END, "Cumulative units (end of quarter)",
+              [f"=${qcols[q]}{rows.CUM_START}+${qcols[q]}{rows.UNITS}" for q in range(n_q)],
+              f"=${qcols[-1]}{rows.CUM_END}", "start + units shipped this quarter.",
               fill=_F_HELPER)
 
     # ── REBATE ──
-    _section_hdr(ws, _M_SEC_REBATE, "— REBATE (two readings of the ambiguous §5 clause) —", n_cols)
-    for hrow, thr_name, label in (
-        (_M_HEAD0, "RebateTier1Threshold", "Headroom below Tier 1"),
-        (_M_HEAD1, "RebateTier2Threshold", "Headroom below Tier 2"),
-        (_M_HEAD2, "RebateTier3Threshold", "Headroom below Tier 3"),
-    ):
-        write_row(hrow, label, [f"=MAX(0,{thr_name}-${qcols[q]}{_M_CUM_START})" for q in range(n_q)],
+    _section_hdr(ws, rows.SEC_REBATE, "— REBATE (two readings of the ambiguous §5 clause) —", n_cols)
+    # One headroom row per tier: how many more units until this tier unlocks.
+    for i, hrow in enumerate(rows.HEAD):
+        thr_name = f"RebateTier{i + 1}Threshold"
+        write_row(hrow, f"Headroom below Tier {i + 1}",
+                  [f"=MAX(0,{thr_name}-${qcols[q]}{rows.CUM_START})" for q in range(n_q)],
                   None, f"MAX(0, {thr_name} − cumulative start). MAX/MIN arithmetic, no nested IFs.",
                   fill=_F_HELPER)
-    zone_specs = [
-        (_M_ZONE0, "Units in no-rebate zone",
-         lambda q: f"=MIN(${qcols[q]}{_M_UNITS},${qcols[q]}{_M_HEAD0})"),
-        (_M_ZONE1, "Units in Tier-1 zone",
-         lambda q: f"=MIN(${qcols[q]}{_M_UNITS},${qcols[q]}{_M_HEAD1})-MIN(${qcols[q]}{_M_UNITS},${qcols[q]}{_M_HEAD0})"),
-        (_M_ZONE2, "Units in Tier-2 zone",
-         lambda q: f"=MIN(${qcols[q]}{_M_UNITS},${qcols[q]}{_M_HEAD2})-MIN(${qcols[q]}{_M_UNITS},${qcols[q]}{_M_HEAD1})"),
-        (_M_ZONE3, "Units in Tier-3 zone",
-         lambda q: f"=${qcols[q]}{_M_UNITS}-MIN(${qcols[q]}{_M_UNITS},${qcols[q]}{_M_HEAD2})"),
-    ]
-    for row, label, fn in zone_specs:
-        write_row(row, label, [fn(q) for q in range(n_q)], None,
+
+    # N + 1 zone rows: below tier 1, one band per tier, and above the top tier.
+    # Zone[0] earns no rebate; Zone[i] (i ≥ 1) earns RebateTier{i}Rate.
+    def _zone_formula(i: int, q: int) -> str:
+        units = f"${qcols[q]}{rows.UNITS}"
+        if i == 0:
+            return f"=MIN({units},${qcols[q]}{rows.HEAD[0]})"
+        if i == n_tiers:
+            return f"={units}-MIN({units},${qcols[q]}{rows.HEAD[-1]})"
+        return (f"=MIN({units},${qcols[q]}{rows.HEAD[i]})"
+                f"-MIN({units},${qcols[q]}{rows.HEAD[i - 1]})")
+
+    for i, zrow in enumerate(rows.ZONE):
+        label = "Units in no-rebate zone" if i == 0 else f"Units in Tier-{i} zone"
+        write_row(zrow, label, [_zone_formula(i, q) for q in range(n_q)], None,
                   "How many of this quarter's units fall in each rebate band (MAX/MIN arithmetic).",
                   fill=_F_HELPER)
-    write_row(_M_REBATE_A, "Rebate — Reading A (prospective / marginal)",
-              [f"=({qcols[q]}{_M_ZONE1}*RebateTier1Rate+{qcols[q]}{_M_ZONE2}*RebateTier2Rate"
-               f"+{qcols[q]}{_M_ZONE3}*RebateTier3Rate)*ASP" for q in range(n_q)],
-              sum_row(_M_REBATE_A), "Each unit earns the marginal rate of its cumulative band.",
+
+    if n_tiers:
+        reading_a = [
+            "=(" + "+".join(f"{qcols[q]}{rows.ZONE[i]}*RebateTier{i}Rate"
+                            for i in range(1, n_tiers + 1)) + ")*ASP"
+            for q in range(n_q)
+        ]
+    else:
+        reading_a = ["=0"] * n_q
+    write_row(rows.REBATE_A, "Rebate — Reading A (prospective / marginal)",
+              reading_a,
+              sum_row(rows.REBATE_A), "Each unit earns the marginal rate of its cumulative band.",
               comment="Reading A (prospective): only units above a threshold get the higher rate. "
-                      "Totals ~$142.5M.")
+                      "Each tier's zone row is multiplied by that tier's rate, then by ASP.")
     rebate_b = []
     for q in range(n_q):
+        if not n_tiers:
+            rebate_b.append("=0")
+            continue
         yi = q // qpy
         ye = min((yi + 1) * qpy, n_q) - 1
-        rebate_b.append(f"=VLOOKUP(${qcols[ye]}{_M_CUM_END},TierTable,2,1)*${qcols[q]}{_M_UNITS}*ASP")
-    write_row(_M_REBATE_B, "Rebate — Reading B (retroactive within year)",
-              rebate_b, sum_row(_M_REBATE_B),
+        rebate_b.append(f"=VLOOKUP(${qcols[ye]}{rows.CUM_END},TierTable,2,1)*${qcols[q]}{rows.UNITS}*ASP")
+    write_row(rows.REBATE_B, "Rebate — Reading B (retroactive within year)",
+              rebate_b, sum_row(rows.REBATE_B),
               "Year-end cumulative sets one blended rate applied to the whole year (VLOOKUP).",
               comment="Reading B (retroactive): the year-end cumulative volume sets the rate for "
                       "ALL of that year's units. Totals ~$183.5M — about $41M more than Reading A. "
                       "Default. The gap is a Legal + Revenue Accounting question.")
-    write_row(_M_ACT_REBATE, "★ Active Rebate (toggle-selected)",
-              [f'=IF(RebateToggle="B-Retroactive",${qcols[q]}{_M_REBATE_B},${qcols[q]}{_M_REBATE_A})'
-               for q in range(n_q)], sum_row(_M_ACT_REBATE),
+    write_row(rows.ACT_REBATE, "★ Active Rebate (toggle-selected)",
+              [f'=IF(RebateToggle="B-Retroactive",${qcols[q]}{rows.REBATE_B},${qcols[q]}{rows.REBATE_A})'
+               for q in range(n_q)], sum_row(rows.ACT_REBATE),
               "Single IF on the Rebate Reading toggle. Flip the toggle to switch readings live.",
               comment="One IF on RebateToggle picks Reading A or B. Change the toggle on "
                       "Assumptions and this row (and net revenue, margin, NPV) all move.")
-    cell_map["ModelActiveRebateTotal"] = f"Model!${tcl}${_M_ACT_REBATE}"
+    cell_map["ModelActiveRebateTotal"] = f"Model!${tcl}${rows.ACT_REBATE}"
 
     # ── NET REVENUE ──
-    _section_hdr(ws, _M_SEC_NET, "— NET REVENUE (GAAP carries the warrant; cash view excludes it) —", n_cols)
-    write_row(_M_WARRANT_CTR, "Warrant contra-revenue (non-cash)",
+    _section_hdr(ws, rows.SEC_NET, "— NET REVENUE (GAAP carries the warrant; cash view excludes it) —", n_cols)
+    write_row(rows.WARRANT_CTR, "Warrant contra-revenue (non-cash)",
               [f"={cell_map[f'ContraSchedQ{q + 1}']}" for q in range(n_q)],
-              sum_row(_M_WARRANT_CTR),
+              sum_row(rows.WARRANT_CTR),
               "Free stock given to the customer, allocated as units cross warrant milestones "
               "(reads the Warrant tab). Non-cash. Scales with Demand%.",
               comment="ASC 606: equity to a customer is consideration payable to a customer → a "
                       "reduction of transaction price (contra-revenue), measured under ASC 718. "
                       "Reads the Warrant tab's deployment-band allocation, so fewer deployed "
                       "units = less contra. This is why the −$2B mis-scaling cannot happen here.")
-    cell_map["ModelWarrantContraTotal"] = f"Model!${tcl}${_M_WARRANT_CTR}"
-    write_row(_M_ADHOC, "Ad-hoc adjustment (analyst-editable)",
+    cell_map["ModelWarrantContraTotal"] = f"Model!${tcl}${rows.WARRANT_CTR}"
+    write_row(rows.ADHOC, "Ad-hoc adjustment (analyst-editable)",
               [int(inp.adhoc_schedule[q]) if q < len(inp.adhoc_schedule) and inp.adhoc_schedule[q] else 0
-               for q in range(n_q)], sum_row(_M_ADHOC),
+               for q in range(n_q)], sum_row(rows.ADHOC),
               "Manual line item (side-letter credit, etc.). Positive = adds to net revenue.",
               unlock=True,
               comment="The only editable numeric cells on the Model tab. Analyst override; flows "
                       "through net revenue and margin like any driver.")
-    write_row(_M_NET_GAAP, "Net Revenue — GAAP",
-              [f"=${qcols[q]}{_M_GROSS_REV}-${qcols[q]}{_M_ACT_REBATE}-${qcols[q]}{_M_WARRANT_CTR}"
-               f"+${qcols[q]}{_M_ADHOC}" for q in range(n_q)], sum_row(_M_NET_GAAP),
+    write_row(rows.NET_GAAP, "Net Revenue — GAAP",
+              [f"=${qcols[q]}{rows.GROSS_REV}-${qcols[q]}{rows.ACT_REBATE}-${qcols[q]}{rows.WARRANT_CTR}"
+               f"+${qcols[q]}{rows.ADHOC}" for q in range(n_q)], sum_row(rows.NET_GAAP),
               "Gross − active rebate − warrant contra + ad-hoc. Carries the non-cash warrant.",
               comment="GAAP net revenue. Because the $3.4B warrant contra exceeds product margin, "
                       "this is far below the cash view — the headline of the deal.")
-    cell_map["ModelNetGaapTotal"] = f"Model!${tcl}${_M_NET_GAAP}"
-    write_row(_M_NET_CASH, "Net Revenue — cash / commercial",
-              [f"=${qcols[q]}{_M_GROSS_REV}-${qcols[q]}{_M_ACT_REBATE}+${qcols[q]}{_M_ADHOC}"
-               for q in range(n_q)], sum_row(_M_NET_CASH),
+    cell_map["ModelNetGaapTotal"] = f"Model!${tcl}${rows.NET_GAAP}"
+    write_row(rows.NET_CASH, "Net Revenue — cash / commercial",
+              [f"=${qcols[q]}{rows.GROSS_REV}-${qcols[q]}{rows.ACT_REBATE}+${qcols[q]}{rows.ADHOC}"
+               for q in range(n_q)], sum_row(rows.NET_CASH),
               "Gross − active rebate + ad-hoc. Excludes the non-cash warrant (the 'cash-economic' view).",
               comment="Cash / commercial net revenue — the non-GAAP-style view that excludes the "
                       "non-cash warrant (analogous to how AMD's own non-GAAP excludes stock comp).")
-    cell_map["ModelNetCashTotal"] = f"Model!${tcl}${_M_NET_CASH}"
+    cell_map["ModelNetCashTotal"] = f"Model!${tcl}${rows.NET_CASH}"
 
     # ── COST & MARGIN ──
-    _section_hdr(ws, _M_SEC_COST, "— COST & MARGIN —", n_cols)
-    write_row(_M_UNIT_COGS, "Unit COGS ($/unit)", ["=UnitCOGS"] * n_q, "=UnitCOGS",
+    _section_hdr(ws, rows.SEC_COST, "— COST & MARGIN —", n_cols)
+    write_row(rows.UNIT_COGS, "Unit COGS ($/unit)", ["=UnitCOGS"] * n_q, "=UnitCOGS",
               "Cost to build one chip (Assumptions §4).")
-    write_row(_M_COGS, "COGS = Units × Unit COGS",
-              [f"=${qcols[q]}{_M_UNITS}*${qcols[q]}{_M_UNIT_COGS}" for q in range(n_q)],
-              sum_row(_M_COGS), "Units × unit cost.")
-    cell_map["ModelCOGSTotal"] = f"Model!${tcl}${_M_COGS}"
-    write_row(_M_GM_GAAP, "Gross Margin — GAAP",
-              [f"=${qcols[q]}{_M_NET_GAAP}-${qcols[q]}{_M_COGS}" for q in range(n_q)],
-              sum_row(_M_GM_GAAP), "GAAP net revenue − COGS. Negative here (warrant-dominated).",
+    write_row(rows.COGS, "COGS = Units × Unit COGS",
+              [f"=${qcols[q]}{rows.UNITS}*${qcols[q]}{rows.UNIT_COGS}" for q in range(n_q)],
+              sum_row(rows.COGS), "Units × unit cost.")
+    cell_map["ModelCOGSTotal"] = f"Model!${tcl}${rows.COGS}"
+    write_row(rows.GM_GAAP, "Gross Margin — GAAP",
+              [f"=${qcols[q]}{rows.NET_GAAP}-${qcols[q]}{rows.COGS}" for q in range(n_q)],
+              sum_row(rows.GM_GAAP), "GAAP net revenue − COGS. Negative here (warrant-dominated).",
               comment="GAAP gross margin. Negative because the warrant contra exceeds product "
                       "margin — correct, not a bug. The deal is GAAP-dilutive.")
-    cell_map["ModelGmGaapTotal"] = f"Model!${tcl}${_M_GM_GAAP}"
-    write_row(_M_GMPCT_GAAP, "Gross Margin % — GAAP",
-              [f"=IF(${qcols[q]}{_M_NET_GAAP}=0,0,${qcols[q]}{_M_GM_GAAP}/${qcols[q]}{_M_NET_GAAP})"
+    cell_map["ModelGmGaapTotal"] = f"Model!${tcl}${rows.GM_GAAP}"
+    write_row(rows.GMPCT_GAAP, "Gross Margin % — GAAP",
+              [f"=IF(${qcols[q]}{rows.NET_GAAP}=0,0,${qcols[q]}{rows.GM_GAAP}/${qcols[q]}{rows.NET_GAAP})"
                for q in range(n_q)],
-              f"=IF(${tcl}{_M_NET_GAAP}=0,0,${tcl}{_M_GM_GAAP}/${tcl}{_M_NET_GAAP})",
+              f"=IF(${tcl}{rows.NET_GAAP}=0,0,${tcl}{rows.GM_GAAP}/${tcl}{rows.NET_GAAP})",
               "GAAP gross margin ÷ GAAP net revenue.", fmt="0.0%")
-    cell_map["ModelGmPctGaapTotal"] = f"Model!${tcl}${_M_GMPCT_GAAP}"
-    write_row(_M_GM_CASH, "Gross Margin — cash / commercial",
-              [f"=${qcols[q]}{_M_NET_CASH}-${qcols[q]}{_M_COGS}" for q in range(n_q)],
-              sum_row(_M_GM_CASH), "Cash net revenue − COGS. The healthy ~37% headline margin.",
+    cell_map["ModelGmPctGaapTotal"] = f"Model!${tcl}${rows.GMPCT_GAAP}"
+    write_row(rows.GM_CASH, "Gross Margin — cash / commercial",
+              [f"=${qcols[q]}{rows.NET_CASH}-${qcols[q]}{rows.COGS}" for q in range(n_q)],
+              sum_row(rows.GM_CASH), "Cash net revenue − COGS. The healthy ~37% headline margin.",
               comment="Cash gross margin — excludes the non-cash warrant. This is the ~$1.36B / "
                       "~37.6% figure the deal team quotes.")
-    cell_map["ModelGmCashTotal"] = f"Model!${tcl}${_M_GM_CASH}"
-    write_row(_M_GMPCT_CASH, "Gross Margin % — cash / commercial",
-              [f"=IF(${qcols[q]}{_M_NET_CASH}=0,0,${qcols[q]}{_M_GM_CASH}/${qcols[q]}{_M_NET_CASH})"
+    cell_map["ModelGmCashTotal"] = f"Model!${tcl}${rows.GM_CASH}"
+    write_row(rows.GMPCT_CASH, "Gross Margin % — cash / commercial",
+              [f"=IF(${qcols[q]}{rows.NET_CASH}=0,0,${qcols[q]}{rows.GM_CASH}/${qcols[q]}{rows.NET_CASH})"
                for q in range(n_q)],
-              f"=IF(${tcl}{_M_NET_CASH}=0,0,${tcl}{_M_GM_CASH}/${tcl}{_M_NET_CASH})",
+              f"=IF(${tcl}{rows.NET_CASH}=0,0,${tcl}{rows.GM_CASH}/${tcl}{rows.NET_CASH})",
               "Cash gross margin ÷ cash net revenue.", fmt="0.0%")
-    cell_map["ModelGmPctCashTotal"] = f"Model!${tcl}${_M_GMPCT_CASH}"
-    write_row(_M_OPEX_PCT, "OpEx allocation %", ["=OpExPct"] * n_q, "=OpExPct",
+    cell_map["ModelGmPctCashTotal"] = f"Model!${tcl}${rows.GMPCT_CASH}"
+    write_row(rows.OPEX_PCT, "OpEx allocation %", ["=OpExPct"] * n_q, "=OpExPct",
               "Allocated operating expense as a % of cash net revenue.", fmt="0.00%")
-    write_row(_M_ALLOC_OPEX, "Allocated OpEx",
-              [f"=${qcols[q]}{_M_NET_CASH}*${qcols[q]}{_M_OPEX_PCT}" for q in range(n_q)],
-              sum_row(_M_ALLOC_OPEX), "Cash net revenue × opex %.")
-    write_row(_M_CONTRIB, "Contribution margin (cash)",
-              [f"=${qcols[q]}{_M_GM_CASH}-${qcols[q]}{_M_ALLOC_OPEX}" for q in range(n_q)],
-              sum_row(_M_CONTRIB), "Cash gross margin − allocated opex.")
+    write_row(rows.ALLOC_OPEX, "Allocated OpEx",
+              [f"=${qcols[q]}{rows.NET_CASH}*${qcols[q]}{rows.OPEX_PCT}" for q in range(n_q)],
+              sum_row(rows.ALLOC_OPEX), "Cash net revenue × opex %.")
+    write_row(rows.CONTRIB, "Contribution margin (cash)",
+              [f"=${qcols[q]}{rows.GM_CASH}-${qcols[q]}{rows.ALLOC_OPEX}" for q in range(n_q)],
+              sum_row(rows.CONTRIB), "Cash gross margin − allocated opex.")
 
     # ── CASH FLOW & NPV (live) ──
-    _section_hdr(ws, _M_SEC_CASH, "— CASH FLOW & NPV (live; pre-tax; simplified quarterly timing) —", n_cols)
-    write_row(_M_NET_BILL, "Cash net billing = Gross − active rebate",
-              [f"=${qcols[q]}{_M_GROSS_REV}-${qcols[q]}{_M_ACT_REBATE}" for q in range(n_q)],
-              sum_row(_M_NET_BILL), "What AMD invoices the customer (excludes the non-cash warrant).")
-    prepay_avail = ["=PrepaymentUSD"] + [f"=${qcols[q - 1]}{_M_PREPAY_END}" for q in range(1, n_q)]
-    write_row(_M_PREPAY_AVL, "Prepayment available (start of quarter)", prepay_avail,
+    _section_hdr(ws, rows.SEC_CASH, "— CASH FLOW & NPV (live; pre-tax; simplified quarterly timing) —", n_cols)
+    write_row(rows.NET_BILL, "Cash net billing = Gross − active rebate",
+              [f"=${qcols[q]}{rows.GROSS_REV}-${qcols[q]}{rows.ACT_REBATE}" for q in range(n_q)],
+              sum_row(rows.NET_BILL), "What AMD invoices the customer (excludes the non-cash warrant).")
+    prepay_avail = ["=PrepaymentUSD"] + [f"=${qcols[q - 1]}{rows.PREPAY_END}" for q in range(1, n_q)]
+    write_row(rows.PREPAY_AVL, "Prepayment available (start of quarter)", prepay_avail,
               None, "Remaining customer prepayment at the start of the quarter.", fill=_F_HELPER,
               comment="The $500M prepayment is drawn down 20% of each invoice until exhausted "
                       "(contract §7). This row carries the running balance.")
-    write_row(_M_DRAWDOWN, "Prepayment drawdown (20% of invoice)",
-              [f"=MIN(${qcols[q]}{_M_PREPAY_AVL},0.2*${qcols[q]}{_M_GROSS_REV})" for q in range(n_q)],
-              sum_row(_M_DRAWDOWN), "20% of the invoice, capped at the remaining prepayment.",
+    write_row(rows.DRAWDOWN, "Prepayment drawdown (20% of invoice)",
+              [f"=MIN(${qcols[q]}{rows.PREPAY_AVL},0.2*${qcols[q]}{rows.GROSS_REV})" for q in range(n_q)],
+              sum_row(rows.DRAWDOWN), "20% of the invoice, capped at the remaining prepayment.",
               fill=_F_HELPER)
-    write_row(_M_PREPAY_END, "Prepayment remaining (end of quarter)",
-              [f"=${qcols[q]}{_M_PREPAY_AVL}-${qcols[q]}{_M_DRAWDOWN}" for q in range(n_q)],
+    write_row(rows.PREPAY_END, "Prepayment remaining (end of quarter)",
+              [f"=${qcols[q]}{rows.PREPAY_AVL}-${qcols[q]}{rows.DRAWDOWN}" for q in range(n_q)],
               None, "available − drawdown.", fill=_F_HELPER)
-    write_row(_M_COLLECTED, "Customer cash collected = billing − drawdown",
-              [f"=${qcols[q]}{_M_NET_BILL}-${qcols[q]}{_M_DRAWDOWN}" for q in range(n_q)],
-              sum_row(_M_COLLECTED), "Cash actually received from the customer this quarter "
+    write_row(rows.COLLECTED, "Customer cash collected = billing − drawdown",
+              [f"=${qcols[q]}{rows.NET_BILL}-${qcols[q]}{rows.DRAWDOWN}" for q in range(n_q)],
+              sum_row(rows.COLLECTED), "Cash actually received from the customer this quarter "
               "(the rest is covered by the prepayment).")
-    write_row(_M_OPCASH, "Operating cash flow = collected − COGS − OpEx",
-              [f"=${qcols[q]}{_M_COLLECTED}-${qcols[q]}{_M_COGS}-${qcols[q]}{_M_ALLOC_OPEX}"
-               for q in range(n_q)], sum_row(_M_OPCASH),
+    write_row(rows.OPCASH, "Operating cash flow = collected − COGS − OpEx",
+              [f"=${qcols[q]}{rows.COLLECTED}-${qcols[q]}{rows.COGS}-${qcols[q]}{rows.ALLOC_OPEX}"
+               for q in range(n_q)], sum_row(rows.OPCASH),
               "Simplified: revenue collected in-quarter (no DSO lag here — the Acct_Sched tab "
               "shows the receivables timing). The prepayment inflow is added in the NPV below.",
               comment="Operating cash per quarter. SIMPLIFIED quarterly timing: the engine's "
                       "headline NPV uses a finer monthly DSO/DPO/inventory model. This in-sheet "
                       "NPV is a live pre-tax proxy that responds to every input.")
     # Quarterly WACC + live NPV
-    ws.cell(row=_M_WACC_Q, column=1, value="Quarterly WACC = (1+WACC)^(1/4) − 1")
-    wq = ws.cell(row=_M_WACC_Q, column=first_q, value="=(1+WACC)^0.25-1")
+    ws.cell(row=rows.WACC_Q, column=1, value="Quarterly WACC = (1+WACC)^(1/4) − 1")
+    wq = ws.cell(row=rows.WACC_Q, column=first_q, value="=(1+WACC)^0.25-1")
     wq.number_format = "0.000%"
-    cell_map["ModelWaccQ"] = f"Model!${qcols[0]}${_M_WACC_Q}"
+    cell_map["ModelWaccQ"] = f"Model!${qcols[0]}${rows.WACC_Q}"
     _note(wq, "Annual WACC converted to a quarterly discount rate for =NPV(). Live on WACC.")
-    _wrapped(ws, _M_WACC_Q, note_col, "Converts the annual WACC named range to a quarterly rate.")
-    ws.cell(row=_M_NPV, column=1, value="NPV (pre-tax, live)").font = _FONT_BOLD
+    _wrapped(ws, rows.WACC_Q, note_col, "Converts the annual WACC named range to a quarterly rate.")
+    ws.cell(row=rows.NPV, column=1, value="NPV (pre-tax, live)").font = _FONT_BOLD
     npv_cell = ws.cell(
-        row=_M_NPV, column=first_q,
-        value=f"=PrepaymentUSD+NPV(${qcols[0]}${_M_WACC_Q},${qcols[0]}${_M_OPCASH}:${qcols[-1]}${_M_OPCASH})")
+        row=rows.NPV, column=first_q,
+        value=f"=PrepaymentUSD+NPV(${qcols[0]}${rows.WACC_Q},${qcols[0]}${rows.OPCASH}:${qcols[-1]}${rows.OPCASH})")
     npv_cell.number_format = "#,##0"
     npv_cell.font = _FONT_BOLD
     _note(npv_cell,
           "LIVE =NPV(): prepayment received at deal start, plus the operating-cash row discounted "
           "at the quarterly WACC. Change WACC, ASP, COGS, units or Demand% and this moves. "
           "Pre-tax; simplified quarterly timing vs the engine's monthly model.")
-    cell_map["ModelNPV"] = f"Model!${qcols[0]}${_M_NPV}"
-    _wrapped(ws, _M_NPV, note_col, "Live NPV — referenced by the Scenarios and CRB tabs.")
+    cell_map["ModelNPV"] = f"Model!${qcols[0]}${rows.NPV}"
+    _wrapped(ws, rows.NPV, note_col, "Live NPV — referenced by the Scenarios and CRB tabs.")
 
     # ── TAKE-OR-PAY CHECK (annual floor; live on ToPFloor and Demand%) ──
-    r = _M_NPV + 2
+    r = rows.NPV + 2
     _section_hdr(ws, r, "— TAKE-OR-PAY CHECK (annual 80% floor; live on Demand%) —", n_cols)
     r += 1
     for col, h in enumerate(["Year", "Committed", "Floor (ToP%)", "Taken (after Demand%)",
@@ -973,7 +1004,7 @@ def _write_model(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> None:
     for y in range(n_years):
         q0, q1 = y * qpy, min((y + 1) * qpy, n_q)
         committed_terms = "+".join(f"UnitQ{q + 1}" for q in range(q0, q1))
-        taken_terms = "+".join(f"${qcols[q]}${_M_UNITS}" for q in range(q0, q1))
+        taken_terms = "+".join(f"${qcols[q]}${rows.UNITS}" for q in range(q0, q1))
         ws.cell(row=r, column=1, value=f"Year {y + 1}")
         ws.cell(row=r, column=2, value=f"={committed_terms}").number_format = "#,##0"
         ws.cell(row=r, column=3, value=f"=ToPFloor*B{r}").number_format = "#,##0"
@@ -995,7 +1026,7 @@ def _write_model(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _write_warrant(ws, warrant: WarrantEconomics | None, inp, pkg: DealPackage,
-                   as_of: str, cell_map: dict) -> None:
+                   as_of: str, cell_map: dict, rows: _ModelRows) -> None:
     ws.title = "Warrant"
     n_q = len(inp.committed_quarterly)
     for col in range(1, 14):
@@ -1068,8 +1099,8 @@ def _write_warrant(ws, warrant: WarrantEconomics | None, inp, pkg: DealPackage,
         rr = alloc_first + i
         ws.cell(row=rr, column=1, value=f"Tranche {i + 1} contra")
         for q in range(n_q):
-            cs = f"Model!${qcols[q]}${_M_CUM_START}"
-            ce = f"Model!${qcols[q]}${_M_CUM_END}"
+            cs = f"Model!${qcols[q]}${rows.CUM_START}"
+            ce = f"Model!${qcols[q]}${rows.CUM_END}"
             # overlap of (cum_start, cum_end] with (prev_milestone, milestone] × per-unit EFV
             f = (f"=MAX(0,MIN({ce},$E${tr})-MAX({cs},$F${tr}))*$L${tr}")
             ws.cell(row=rr, column=_Q1_COL + q, value=f).number_format = "#,##0"
@@ -1241,7 +1272,8 @@ def _write_scenarios(ws, econ: DealEconomics, pkg: DealPackage, as_of: str, cell
 # Accounting schedules tab
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _write_acct_sched(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> None:
+def _write_acct_sched(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict,
+                      rows: _ModelRows) -> None:
     ws.title = "Acct_Sched"
     n_q = len(inp.committed_quarterly)
     qpy = inp.qpy
@@ -1259,7 +1291,7 @@ def _write_acct_sched(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> 
         qc = _cl(_Q1_COL + q)
         ws.cell(row=r, column=1, value=f"Q{q + 1}")
         ws.cell(row=r, column=2, value=(0 if q == 0 else f"=E{r - 1}")).number_format = "#,##0"
-        ws.cell(row=r, column=3, value=f"=Model!${qc}${_M_ACT_REBATE}").number_format = "#,##0"
+        ws.cell(row=r, column=3, value=f"=Model!${qc}${rows.ACT_REBATE}").number_format = "#,##0"
         is_year_end = ((q + 1) % qpy == 0) or (q == n_q - 1)
         if is_year_end:
             ys = r - (q % qpy)
@@ -1279,9 +1311,9 @@ def _write_acct_sched(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> 
     for q in range(n_q):
         qc = _cl(_Q1_COL + q)
         ws.cell(row=r, column=1, value=f"Q{q + 1}")
-        ws.cell(row=r, column=2, value=f"=Model!${qc}${_M_PREPAY_AVL}").number_format = "#,##0"
-        ws.cell(row=r, column=3, value=f"=Model!${qc}${_M_DRAWDOWN}").number_format = "#,##0"
-        ws.cell(row=r, column=4, value=f"=Model!${qc}${_M_PREPAY_END}").number_format = "#,##0"
+        ws.cell(row=r, column=2, value=f"=Model!${qc}${rows.PREPAY_AVL}").number_format = "#,##0"
+        ws.cell(row=r, column=3, value=f"=Model!${qc}${rows.DRAWDOWN}").number_format = "#,##0"
+        ws.cell(row=r, column=4, value=f"=Model!${qc}${rows.PREPAY_END}").number_format = "#,##0"
         r += 1
     _wrapped(ws, r, 1, "Mirrors the Model's live prepayment roll-forward (20% of each invoice "
                        "until exhausted)."); r += 2
@@ -1316,7 +1348,7 @@ def _write_acct_sched(ws, inp, pkg: DealPackage, as_of: str, cell_map: dict) -> 
         ws.cell(row=hdr_row, column=col, value=f"M{m + 1}").font = _FONT_BOLD
         # billing = quarter net billing / 3
         ws.cell(row=bill_row, column=col,
-                value=f"=Model!${qc}${_M_NET_BILL}/3").number_format = "#,##0"
+                value=f"=Model!${qc}${rows.NET_BILL}/3").number_format = "#,##0"
         # collection = billing dso_months earlier (0 before that)
         if m - dso_months >= 0:
             ws.cell(row=coll_row, column=col,
@@ -1652,6 +1684,9 @@ def build_workbook(
     inp = extract_inputs(pkg, assumptions=assumptions)
     n_q = len(inp.committed_quarterly)
     as_of = as_of or datetime.now().strftime("%Y-%m-%d")
+    # Model row layout is generated from the actual tier count, and shared with
+    # every tab that references a Model row.
+    rows = _ModelRows(len(inp.rebate_tiers))
 
     wb = Workbook()
     wb.remove(wb.active)
@@ -1668,10 +1703,10 @@ def build_workbook(
     ws_drv = wb.create_sheet("Drivers")
     _write_drivers(ws_drv, econ, pkg, inp, as_of, cell_map)
     _write_tier_table(ws_drv, inp, cell_map)
-    _write_model(wb.create_sheet("Model"), inp, pkg, as_of, cell_map)
-    _write_warrant(wb.create_sheet("Warrant"), warrant, inp, pkg, as_of, cell_map)
+    _write_model(wb.create_sheet("Model"), inp, pkg, as_of, cell_map, rows)
+    _write_warrant(wb.create_sheet("Warrant"), warrant, inp, pkg, as_of, cell_map, rows)
     _write_scenarios(wb.create_sheet("Scenarios"), econ, pkg, as_of, cell_map)
-    _write_acct_sched(wb.create_sheet("Acct_Sched"), inp, pkg, as_of, cell_map)
+    _write_acct_sched(wb.create_sheet("Acct_Sched"), inp, pkg, as_of, cell_map, rows)
     _write_variance(wb.create_sheet("Variance"), versions, pkg, as_of)
     _write_assumption_reg(wb.create_sheet("Assumption_Reg"), register, pkg, as_of)
     _write_crb_summary(wb.create_sheet("CRB_Summary"), econ, warrant, memo, pkg, as_of, cell_map)
